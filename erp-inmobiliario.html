@@ -1026,15 +1026,28 @@ let state = {
 const DATA_VERSION = 'stories-v8';
 let _saveTimer = null;
 
+// Un estado válido tiene que tener al menos estos arrays. Si falta alguno (ej. quedó un
+// estado vacío/corrupto guardado en localStorage o en el servidor) lo descartamos.
+function isValidState(s) {
+  if (!s || typeof s !== 'object') return false;
+  const requiredArrays = ['unidades', 'ventas', 'cocheras', 'subcontratos', 'cronograma'];
+  return requiredArrays.every(k => Array.isArray(s[k]));
+}
+
+function normalizeState(s) {
+  if (!s.costosCerrados) s.costosCerrados = [];
+  return s;
+}
+
 function loadState() {
   // Carga rápida desde localStorage (cache local) para no mostrar pantalla en blanco
   // mientras llega la respuesta del servidor compartido.
   try {
     const saved = localStorage.getItem('erp-inmobiliario');
     const version = localStorage.getItem('erp-version');
-    if (saved && version === DATA_VERSION) {
-      state = JSON.parse(saved);
-      if (!state.costosCerrados) state.costosCerrados = [];
+    const parsed = saved ? JSON.parse(saved) : null;
+    if (parsed && version === DATA_VERSION && isValidState(parsed)) {
+      state = normalizeState(parsed);
     } else {
       loadSampleData();
       try { localStorage.setItem('erp-version', DATA_VERSION); } catch (e) {}
@@ -1045,15 +1058,17 @@ function loadState() {
   }
 
   // Sincroniza contra el servidor compartido: si hay datos guardados por cualquier
-  // usuario, pisan al estado local y se re-renderiza la página actual.
+  // usuario, pisan al estado local y se re-renderiza la página actual. Si lo que llega
+  // del servidor está incompleto/corrupto, se ignora y se mantiene lo que ya se cargó.
   fetch('/api/state')
     .then(r => r.json())
     .then(data => {
-      if (data.exists && data.state) {
-        state = data.state;
-        if (!state.costosCerrados) state.costosCerrados = [];
+      if (data.exists && isValidState(data.state)) {
+        state = normalizeState(data.state);
         try { localStorage.setItem('erp-inmobiliario', JSON.stringify(state)); } catch (e) {}
         if (typeof currentPage !== 'undefined' && currentPage) renderPage(currentPage);
+      } else if (data.exists) {
+        console.warn('El servidor devolvió un estado incompleto, se ignora.');
       }
     })
     .catch(e => console.warn('No se pudo sincronizar con el servidor (¿estás offline?).', e));
