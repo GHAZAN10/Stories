@@ -185,21 +185,28 @@
   /* Responsive: celular */
   @media (max-width: 768px) {
     .app { display: block; }
+    /* Sidebar pasa a ser una barra superior en columna: logo arriba, menú completo abajo. */
     .sidebar {
       width: 100%; height: auto; position: relative; z-index: 10;
-      flex-direction: row; align-items: center; padding: 10px 12px; overflow-x: auto;
+      flex-direction: column; align-items: stretch; padding: 8px 0;
     }
-    .logo { border-bottom: none; border-right: 1px solid var(--border); padding: 0 14px; flex-shrink: 0; }
-    .logo p { display: none; }
-    .nav { display: flex; flex-direction: row; padding: 0 0 0 10px; flex: 1; overflow-x: auto; }
+    .logo { border-bottom: 1px solid var(--border); padding: 8px 16px 12px; }
+    /* El menú se muestra COMPLETO (wrap), no depende de scroll horizontal oculto. */
+    .nav {
+      display: flex; flex-direction: row; flex-wrap: wrap; gap: 6px;
+      padding: 10px 12px; flex: none;
+    }
     .nav-item {
-      flex-direction: column; gap: 2px; padding: 6px 12px; border-left: none;
-      border-bottom: 3px solid transparent; white-space: nowrap; font-size: 11px;
+      flex-direction: row; gap: 6px; padding: 8px 12px; border-left: none;
+      border-radius: 8px; white-space: nowrap; font-size: 12px;
+      background: var(--surface2);
     }
-    .nav-item.active { border-left-color: transparent; border-bottom-color: var(--accent); }
-    .sidebar > div:last-child { border-top: none; padding: 0 0 0 8px; flex-shrink: 0; }
-    .sidebar > div:last-child button { font-size: 0; padding: 8px; }
-    .sidebar > div:last-child button::before { content: '⬇'; font-size: 16px; }
+    .nav-item.active { border-left: none; background: rgba(108,99,255,0.18); color: var(--accent); }
+    .sidebar > div:last-child {
+      flex-direction: row !important; gap: 6px !important;
+      padding: 8px 12px 4px !important; border-top: 1px solid var(--border);
+    }
+    .sidebar > div:last-child button { font-size: 11px !important; flex: 1; padding: 8px 4px !important; }
     .main { margin-left: 0; padding: 12px; }
     .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
     .kpi-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
