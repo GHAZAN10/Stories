@@ -2,15 +2,35 @@ import json
 import os
 import threading
 
+import psycopg2
 from flask import Flask, jsonify, request, send_from_directory
 
 app = Flask(__name__, static_folder=None)
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
-STATE_FILE = os.path.join(DATA_DIR, "state.json")
+DATABASE_URL = os.environ.get("DATABASE_URL")
 _lock = threading.Lock()
 
-os.makedirs(DATA_DIR, exist_ok=True)
+
+def get_conn():
+    return psycopg2.connect(DATABASE_URL, sslmode="require")
+
+
+def init_db():
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS app_state (
+                    id INTEGER PRIMARY KEY,
+                    data JSONB NOT NULL
+                )
+                """
+            )
+        conn.commit()
+
+
+if DATABASE_URL:
+    init_db()
 
 
 @app.route("/")
@@ -20,11 +40,13 @@ def index():
 
 @app.route("/api/state", methods=["GET"])
 def get_state():
-    with _lock:
-        if not os.path.exists(STATE_FILE):
-            return jsonify({"exists": False})
-        with open(STATE_FILE, encoding="utf-8") as f:
-            return jsonify({"exists": True, "state": json.load(f)})
+    with _lock, get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT data FROM app_state WHERE id = 1")
+            row = cur.fetchone()
+    if row is None:
+        return jsonify({"exists": False})
+    return jsonify({"exists": True, "state": row[0]})
 
 
 @app.route("/api/state", methods=["POST"])
@@ -32,9 +54,16 @@ def save_state():
     payload = request.get_json(silent=True)
     if payload is None:
         return jsonify({"error": "JSON invalido"}), 400
-    with _lock:
-        with open(STATE_FILE, "w", encoding="utf-8") as f:
-            json.dump(payload, f, ensure_ascii=False)
+    with _lock, get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO app_state (id, data) VALUES (1, %s)
+                ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data
+                """,
+                (json.dumps(payload),),
+            )
+        conn.commit()
     return jsonify({"ok": True})
 
 
