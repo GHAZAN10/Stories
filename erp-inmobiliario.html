@@ -1,0 +1,3557 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ERP Inmobiliario</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #232636;
+    --border: #2e3148;
+    --accent: #6c63ff;
+    --accent2: #00d4aa;
+    --accent3: #ff6b6b;
+    --accent4: #ffd93d;
+    --text: #e8eaf0;
+    --text2: #9096b0;
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #f59e0b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+
+  /* Layout */
+  .app { display: flex; min-height: 100vh; }
+  .sidebar { width: 220px; background: var(--surface); border-right: 1px solid var(--border); padding: 20px 0; display: flex; flex-direction: column; position: fixed; height: 100vh; z-index: 100; }
+  .main { margin-left: 220px; flex: 1; padding: 24px; }
+
+  /* Sidebar */
+  .logo { padding: 0 20px 24px; border-bottom: 1px solid var(--border); }
+  .logo h1 { font-size: 15px; font-weight: 700; color: var(--accent); letter-spacing: 0.5px; }
+  .logo p { font-size: 11px; color: var(--text2); margin-top: 2px; }
+  .nav { padding: 16px 0; flex: 1; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 20px; cursor: pointer; font-size: 13px; color: var(--text2); transition: all 0.15s; border-left: 3px solid transparent; }
+  .nav-item:hover { background: var(--surface2); color: var(--text); }
+  .nav-item.active { background: rgba(108,99,255,0.12); color: var(--accent); border-left-color: var(--accent); }
+  .nav-icon { font-size: 16px; width: 20px; text-align: center; }
+
+  /* Pages */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* Headers */
+  .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+  .page-header h2 { font-size: 22px; font-weight: 700; }
+  .page-header p { color: var(--text2); font-size: 13px; margin-top: 3px; }
+
+  /* Cards */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .card-title { font-size: 12px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; margin-bottom: 8px; }
+
+  /* KPI Grid */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+  .kpi-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; }
+  .kpi-value { font-size: 26px; font-weight: 700; margin: 6px 0 2px; }
+  .kpi-sub { font-size: 12px; color: var(--text2); }
+  .kpi-trend { font-size: 12px; font-weight: 600; }
+  .kpi-trend.up { color: var(--green); }
+  .kpi-trend.down { color: var(--red); }
+
+  /* Grid layouts */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+  /* Tables */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 10px 12px; color: var(--text2); font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; border-bottom: 1px solid var(--border); }
+  td { padding: 11px 12px; border-bottom: 1px solid rgba(46,49,72,0.5); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  tfoot td { border-top: 2px solid var(--border); border-bottom: none; background: rgba(108,99,255,0.04); padding-top: 12px; padding-bottom: 12px; }
+  tfoot tr:hover td { background: rgba(108,99,255,0.04); }
+
+  /* Buttons */
+  .btn { padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #5a52e0; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-danger { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+  .btn-success { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+
+  /* Badges */
+  .badge { display: inline-block; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-green { background: rgba(34,197,94,0.15); color: var(--green); }
+  .badge-yellow { background: rgba(245,158,11,0.15); color: var(--yellow); }
+  .badge-red { background: rgba(239,68,68,0.15); color: var(--red); }
+  .badge-blue { background: rgba(108,99,255,0.15); color: var(--accent); }
+  .badge-gray { background: rgba(144,150,176,0.15); color: var(--text2); }
+
+  /* Forms */
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group label { font-size: 12px; color: var(--text2); font-weight: 500; }
+  .form-group input, .form-group select, .form-group textarea { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; color: var(--text); font-size: 13px; outline: none; transition: border 0.15s; }
+  .form-group input:focus, .form-group select:focus { border-color: var(--accent); }
+  .form-group select option { background: var(--surface2); }
+
+  /* Modal */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px; width: 600px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+  .modal h3 { font-size: 18px; font-weight: 700; margin-bottom: 20px; }
+  .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+  /* Progress bar */
+  .progress-bar { background: var(--border); border-radius: 20px; height: 8px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 20px; transition: width 0.3s; }
+
+  /* Cashflow chart */
+  .chart-container { height: 200px; display: flex; align-items: flex-end; gap: 4px; padding: 10px 0; }
+  .chart-bar-group { flex: 1; display: flex; gap: 2px; align-items: flex-end; }
+  .chart-bar { flex: 1; border-radius: 4px 4px 0 0; min-height: 2px; transition: height 0.3s; }
+  .chart-label { font-size: 10px; color: var(--text2); text-align: center; margin-top: 6px; }
+
+  /* Semaforo */
+  .semaforo { display: flex; gap: 16px; }
+  .semaforo-item { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .semaforo-dot { width: 16px; height: 16px; border-radius: 50%; opacity: 0.3; transition: opacity 0.3s, box-shadow 0.3s; }
+  .semaforo-dot.active { opacity: 1; box-shadow: 0 0 12px currentColor; }
+  .semaforo-dot.verde { background: var(--green); color: var(--green); }
+  .semaforo-dot.amarillo { background: var(--yellow); color: var(--yellow); }
+  .semaforo-dot.rojo { background: var(--red); color: var(--red); }
+
+  /* Utilities */
+  .text-green { color: var(--green); }
+  .text-red { color: var(--red); }
+  .text-yellow { color: var(--yellow); }
+  .text-accent { color: var(--accent); }
+  .text-2 { color: var(--text2); }
+  .mb-4 { margin-bottom: 16px; }
+  .mb-6 { margin-bottom: 24px; }
+  .mt-4 { margin-top: 16px; }
+  .flex { display: flex; }
+  .items-center { align-items: center; }
+  .gap-2 { gap: 8px; }
+  .gap-4 { gap: 16px; }
+  .justify-between { justify-content: space-between; }
+  .font-bold { font-weight: 700; }
+  .text-sm { font-size: 13px; }
+  .text-xs { font-size: 11px; }
+  .w-full { width: 100%; }
+
+  /* Cajas */
+  .cajas-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .caja-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; position: relative; overflow: hidden; }
+  .caja-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .caja-obra::before { background: var(--accent); }
+  .caja-ventas::before { background: var(--accent2); }
+  .caja-escritura::before { background: var(--accent4); }
+  .caja-impuestos::before { background: var(--red); }
+  .caja-fiducia::before { background: #a78bfa; }
+  .caja-admin::before { background: var(--text2); }
+
+  /* Alertas */
+  .alert { padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; }
+  .alert-warning { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); color: var(--yellow); }
+  .alert-success { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); color: var(--green); }
+  .alert-danger { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: var(--red); }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; background: var(--surface2); padding: 4px; border-radius: 10px; width: fit-content; }
+  .tab { padding: 7px 16px; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text2); transition: all 0.15s; }
+  .tab.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+
+  .section-divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+  input[type="number"] { -moz-appearance: textfield; }
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+  /* Responsive: tablet */
+  @media (max-width: 1024px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .cajas-grid { grid-template-columns: repeat(2, 1fr); }
+    .sidebar { width: 180px; }
+    .main { margin-left: 180px; padding: 16px; }
+  }
+
+  /* Responsive: celular */
+  @media (max-width: 768px) {
+    .app { display: block; }
+    .sidebar {
+      width: 100%; height: auto; position: relative; z-index: 10;
+      flex-direction: row; align-items: center; padding: 10px 12px; overflow-x: auto;
+    }
+    .logo { border-bottom: none; border-right: 1px solid var(--border); padding: 0 14px; flex-shrink: 0; }
+    .logo p { display: none; }
+    .nav { display: flex; flex-direction: row; padding: 0 0 0 10px; flex: 1; overflow-x: auto; }
+    .nav-item {
+      flex-direction: column; gap: 2px; padding: 6px 12px; border-left: none;
+      border-bottom: 3px solid transparent; white-space: nowrap; font-size: 11px;
+    }
+    .nav-item.active { border-left-color: transparent; border-bottom-color: var(--accent); }
+    .sidebar > div:last-child { border-top: none; padding: 0 0 0 8px; flex-shrink: 0; }
+    .sidebar > div:last-child button { font-size: 0; padding: 8px; }
+    .sidebar > div:last-child button::before { content: '⬇'; font-size: 16px; }
+    .main { margin-left: 0; padding: 12px; }
+    .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .kpi-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+    .kpi-value { font-size: 20px; }
+    .cajas-grid { grid-template-columns: 1fr; }
+    .modal { padding: 18px; width: 95vw; }
+    .form-grid { grid-template-columns: 1fr; }
+    table { font-size: 12px; }
+    th, td { padding: 8px; }
+  }
+
+  /* Impresión: fondo blanco, sin sidebar, solo la página activa */
+  @media print {
+    body { background: #fff; color: #111; }
+    .sidebar, .semaforo, .modal-overlay, .btn { display: none !important; }
+    .main { margin-left: 0 !important; padding: 0 !important; }
+    .card, .kpi-card { border: 1px solid #ccc; break-inside: avoid; box-shadow: none; }
+    .card, .kpi-card, .modal { background: #fff !important; }
+    .text-2, .kpi-label, .kpi-sub, th { color: #555 !important; }
+    .page { display: none !important; }
+    .page.active { display: block !important; }
+    table { font-size: 11px; }
+    td, th { border-color: #ddd !important; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="logo">
+      <h1>🏗 ERP Inmobiliario</h1>
+      <p id="project-name-sidebar">Sin proyecto</p>
+    </div>
+    <div class="nav">
+      <div class="nav-item active" onclick="navigate('dashboard')"><span class="nav-icon">📊</span> Dashboard</div>
+      <div class="nav-item" onclick="navigate('proyecto')"><span class="nav-icon">🏢</span> Proyecto</div>
+      <div class="nav-item" onclick="navigate('ventas')"><span class="nav-icon">💰</span> Ventas</div>
+      <div class="nav-item" onclick="navigate('clientes')"><span class="nav-icon">🧑‍💼</span> Clientes</div>
+      <div class="nav-item" onclick="navigate('subcontratos')"><span class="nav-icon">🔧</span> Subcontratos</div>
+      <div class="nav-item" onclick="navigate('cronograma')"><span class="nav-icon">📅</span> Cronograma</div>
+      <div class="nav-item" onclick="navigate('cajas')"><span class="nav-icon">🏦</span> Cajas</div>
+      <div class="nav-item" onclick="navigate('rentabilidad')"><span class="nav-icon">📈</span> Rentabilidad</div>
+    </div>
+    <div style="padding: 16px 20px; border-top: 1px solid var(--border); display:flex; flex-direction:column; gap:8px;">
+      <button class="btn btn-secondary w-full" onclick="exportData()" style="font-size:12px">⬇ Exportar backup</button>
+      <button class="btn btn-secondary w-full" onclick="document.getElementById('import-file').click()" style="font-size:12px">⬆ Importar backup</button>
+      <input type="file" id="import-file" accept="application/json" style="display:none" onchange="importData(event)">
+      <button class="btn btn-secondary w-full" onclick="window.print()" style="font-size:12px">🖨 Imprimir / PDF</button>
+    </div>
+  </nav>
+
+  <main class="main">
+    <!-- DASHBOARD -->
+    <div id="page-dashboard" class="page active">
+      <div class="page-header">
+        <div>
+          <h2>Dashboard General</h2>
+          <p id="dash-subtitle">Resumen ejecutivo del proyecto</p>
+        </div>
+        <div class="semaforo" id="semaforo">
+          <div class="semaforo-item"><div class="semaforo-dot verde" id="sem-verde"></div><span class="text-xs text-2">Óptimo</span></div>
+          <div class="semaforo-item"><div class="semaforo-dot amarillo" id="sem-amarillo"></div><span class="text-xs text-2">Alerta</span></div>
+          <div class="semaforo-item"><div class="semaforo-dot rojo" id="sem-rojo"></div><span class="text-xs text-2">Crítico</span></div>
+        </div>
+      </div>
+
+      <div class="kpi-grid" id="dash-kpis"></div>
+
+      <div class="grid-2 mb-6">
+        <div class="card">
+          <div class="card-title mb-4">Stock — Unidades (cantidad y m²)</div>
+          <div id="stock-unidades"></div>
+        </div>
+        <div class="card">
+          <div class="card-title mb-4">Stock — Cocheras + Local (cantidad)</div>
+          <div id="stock-cocheras"></div>
+        </div>
+      </div>
+
+      <div class="grid-2 mb-6">
+        <div class="card">
+          <div class="card-title">Cashflow Proyectado (próx. 6 meses)</div>
+          <div id="cf-chart" class="chart-container"></div>
+          <div id="cf-labels" style="display:flex; gap:4px; margin-top:4px;"></div>
+          <div class="flex gap-4 mt-4 text-xs">
+            <span><span style="color:var(--green)">■</span> Ingresos</span>
+            <span><span style="color:var(--red)">■</span> Egresos</span>
+            <span><span style="color:var(--accent)">■</span> Neto</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Avance de Ventas por Tipo</div>
+          <div id="ventas-chart" style="margin-top:12px;"></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title mb-4">Alertas del Sistema</div>
+          <div id="alertas-container"></div>
+        </div>
+        <div class="card">
+          <div class="card-title mb-4">Subcontratos Críticos</div>
+          <div id="subcontratos-criticos"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROYECTO -->
+    <div id="page-proyecto" class="page">
+      <div class="page-header">
+        <div><h2>Configuración del Proyecto</h2><p>Datos maestros e inventario de unidades</p></div>
+        <button class="btn btn-primary" onclick="nuevoRegistro('modal-unidad')">+ Agregar Unidad</button>
+      </div>
+
+      <div class="card mb-6">
+        <div class="card-title mb-4">Datos Generales</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Nombre del Proyecto</label>
+            <input type="text" id="proy-nombre" placeholder="Ej: Torre Mirador" oninput="saveProyecto()">
+          </div>
+          <div class="form-group">
+            <label>Ubicación</label>
+            <input type="text" id="proy-ubicacion" placeholder="Dirección" oninput="saveProyecto()">
+          </div>
+          <div class="form-group">
+            <label>Fecha de Inicio</label>
+            <input type="date" id="proy-inicio" oninput="saveProyecto()">
+          </div>
+          <div class="form-group">
+            <label>Fecha de Fin Estimada</label>
+            <input type="date" id="proy-fin" oninput="saveProyecto()">
+          </div>
+          <div class="form-group">
+            <label>Presupuesto Total Obra ($)</label>
+            <input type="number" id="proy-presupuesto" placeholder="0" oninput="saveProyecto()">
+          </div>
+          <div class="form-group">
+            <label>Moneda de Trabajo</label>
+            <select id="proy-moneda" oninput="saveProyecto()">
+              <option value="USD">USD - Dólar</option>
+              <option value="ARS">ARS - Pesos</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="flex justify-between items-center mb-4">
+          <div class="card-title" style="margin-bottom:0">Inventario de Unidades</div>
+          <div class="flex gap-2">
+            <input type="text" id="unidades-buscar" placeholder="Buscar unidad, tipo, cliente o estado..." oninput="renderUnidades()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;color:var(--text);font-size:13px;width:260px">
+            <button class="btn btn-primary btn-sm" onclick="nuevoRegistro('modal-unidad')">+ Agregar</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Unidad</th><th>Tipo</th><th>m² Totales</th><th>m² Cubiertos</th>
+                <th>Piso</th><th>Precio Lista</th><th>$/m²</th><th>Estado</th><th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-unidades"></tbody>
+            <tfoot id="tfoot-unidades"></tfoot>
+          </table>
+        </div>
+        <div class="mt-4 flex gap-4 text-sm text-2" id="unidades-resumen"></div>
+      </div>
+    </div>
+
+    <!-- VENTAS -->
+    <div id="page-ventas" class="page">
+      <div class="page-header">
+        <div><h2>Gestión de Ventas</h2><p>Pipeline comercial y KPIs de ventas</p></div>
+        <button class="btn btn-primary" onclick="nuevoRegistro('modal-venta')">+ Registrar Venta</button>
+      </div>
+
+      <div class="kpi-grid" id="ventas-kpis"></div>
+
+      <div class="tabs">
+        <div class="tab active" onclick="setVentasTab('todas', this)">Todas</div>
+        <div class="tab" onclick="setVentasTab('reserva', this)">Reservas</div>
+        <div class="tab" onclick="setVentasTab('boleto', this)">Boleto</div>
+        <div class="tab" onclick="setVentasTab('escritura', this)">Escritura</div>
+        <div class="tab" onclick="setVentasTab('disponible', this)">Disponibles</div>
+      </div>
+
+      <div class="card mb-6">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Unidad</th><th>Comprador</th><th>Estado</th><th>Precio Venta</th>
+                <th>$/m²</th><th>Fecha</th><th>Cuotas Cobradas</th><th>Saldo</th><th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-ventas"></tbody>
+            <tfoot id="tfoot-ventas"></tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div class="card mb-6">
+        <div class="card-title mb-4">Canjes (tierra, honorarios, obra) — no generan cobro en efectivo</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Unidad</th><th>Tipo de canje</th><th>Cliente / Contraparte</th><th>Valor notional</th><th>Fecha</th></tr></thead>
+            <tbody id="tabla-canjes"></tbody>
+            <tfoot id="tfoot-canjes"></tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="flex justify-between items-center mb-4">
+          <div class="card-title" style="margin-bottom:0">Cocheras + Local (52 unidades, hoja "Pricing cocheras")</div>
+          <span class="text-xs text-2" id="cocheras-resumen"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>N°</th><th>Piso</th><th>Estado</th><th>Precio</th><th>Cliente</th><th>Notas</th></tr></thead>
+            <tbody id="tabla-cocheras"></tbody>
+            <tfoot id="tfoot-cocheras"></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- CLIENTES -->
+    <div id="page-clientes" class="page">
+      <div class="page-header">
+        <div><h2>Clientes</h2><p>Cuenta corriente por comprador: unidades, cocheras y plan de pagos</p></div>
+        <input type="text" id="clientes-buscar" placeholder="Buscar cliente..." oninput="renderClientes()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--text);font-size:13px;width:240px">
+      </div>
+
+      <div class="kpi-grid" id="clientes-kpis"></div>
+
+      <div class="card">
+        <div class="text-xs text-2 mb-4">Click en una fila para ver el detalle completo: unidades, cocheras y plan de pagos.</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Cliente</th><th>Unidad(es)</th><th>m²</th><th>$/m² Prom.</th><th>Total Vendido</th><th>Cobrado</th><th>Saldo</th><th></th></tr>
+            </thead>
+            <tbody id="tabla-clientes"></tbody>
+            <tfoot id="tfoot-clientes"></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUBCONTRATOS -->
+    <div id="page-subcontratos" class="page">
+      <div class="page-header">
+        <div><h2>Subcontratos</h2><p>Control de contratos, certificaciones y pagos</p></div>
+        <button class="btn btn-primary" onclick="nuevoRegistro('modal-subcontrato')">+ Nuevo Subcontrato</button>
+      </div>
+
+      <div class="kpi-grid" id="subcontratos-kpis"></div>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Contrato</th><th>Rubro</th><th>Contratista</th><th>Monto Total</th>
+                <th>Certificado</th><th>Pagado</th><th>Saldo</th><th>Avance</th><th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-subcontratos"></tbody>
+            <tfoot id="tfoot-subcontratos"></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- CRONOGRAMA -->
+    <div id="page-cronograma" class="page">
+      <div class="page-header">
+        <div><h2>Cronograma de Avance</h2><p>Certificaciones y flujo de obra</p></div>
+        <button class="btn btn-primary" onclick="nuevoRegistro('modal-certificacion')">+ Certificar Avance</button>
+      </div>
+
+      <div class="tabs">
+        <div class="tab active" onclick="setCronoTab('resumen', this)">Resumen</div>
+        <div class="tab" onclick="setCronoTab('mensual', this)">Mes a Mes</div>
+      </div>
+
+      <div id="crono-resumen-section">
+        <div class="grid-2 mb-6">
+          <div class="card">
+            <div class="card-title mb-4">Avance General de Obra</div>
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-sm">Avance Real</span>
+              <span class="font-bold text-accent" id="avance-real-pct">0%</span>
+            </div>
+            <div class="progress-bar mb-4">
+              <div class="progress-fill" id="avance-real-bar" style="background: var(--accent); width: 0%"></div>
+            </div>
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-sm">Avance Estimado</span>
+              <span class="font-bold text-yellow" id="avance-est-pct">0%</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="avance-est-bar" style="background: var(--yellow); width: 0%"></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title mb-4">Desvío de Obra</div>
+            <div class="flex items-center gap-4" style="height:80px">
+              <div style="font-size:40px" id="desvio-icon">⚖️</div>
+              <div>
+                <div class="font-bold" style="font-size:20px" id="desvio-valor">0%</div>
+                <div class="text-sm text-2" id="desvio-desc">Sin desvío</div>
+              </div>
+            </div>
+            <div class="text-xs text-2 mt-4" id="desvio-detalle"></div>
+          </div>
+        </div>
+
+        <div class="card mb-6" id="card-curva-avance" style="display:none">
+          <div class="card-title mb-4">Curva de Avance Proyectada vs. Real</div>
+          <div id="curva-avance-container"></div>
+        </div>
+
+        <div class="card mb-6">
+          <div class="card-title mb-4">Cronograma de Hitos</div>
+          <div id="hitos-container"></div>
+          <button class="btn btn-secondary btn-sm mt-4" onclick="nuevoRegistro('modal-hito')">+ Agregar Hito</button>
+        </div>
+
+        <div class="card">
+          <div class="card-title mb-4">Historial de Certificaciones</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Fecha</th><th>Descripción</th><th>Subcontrato</th><th>Monto Certificado</th><th>% Avance</th><th>Acciones</th></tr>
+              </thead>
+              <tbody id="tabla-certificaciones"></tbody>
+              <tfoot id="tfoot-certificaciones"></tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="crono-mensual-section" style="display:none">
+        <div class="card mb-6">
+          <div class="card-title mb-4">Cashflow Mensual Proyectado (todo el horizonte de obra)</div>
+          <div class="text-xs text-2 mb-4">Ingreso = cuotas pendientes de ventas con boleto/escritura. Egreso = saldo de cada subcontrato distribuido linealmente hasta su fecha de fin. No incluye canjes (no generan caja). La columna "Caja Proyectada" arranca del saldo real consolidado de las 5 cuentas (convertido a USD) y le suma el cashflow proyectado mes a mes — si en algún mes da negativo, ese mes te quedás sin caja para pagar obra con los supuestos actuales.</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Mes</th><th>Ingreso Proy.</th><th>Egreso Proy.</th><th>Neto</th><th>Caja Proyectada (real + cashflow)</th></tr>
+              </thead>
+              <tbody id="tabla-cashflow-mensual"></tbody>
+              <tfoot id="tfoot-cashflow-mensual"></tfoot>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="flex justify-between items-center mb-4">
+            <div class="card-title" style="margin-bottom:0">Avance Estimado por Rubro — Mes a Mes vs. Real</div>
+            <span class="text-xs text-2">Estructura usa su curva contractual real; el resto se proyecta lineal entre inicio y fin de contrato.</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead id="thead-avance-rubro-mensual"></thead>
+              <tbody id="tabla-avance-rubro-mensual"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CAJAS -->
+    <div id="page-cajas" class="page">
+      <div class="page-header">
+        <div><h2>Gestión de Cajas</h2><p>Control de flujo de fondos por caja</p></div>
+        <button class="btn btn-primary" onclick="nuevoRegistro('modal-movimiento')">+ Movimiento</button>
+      </div>
+
+      <div class="cajas-grid mb-6" id="cajas-cards"></div>
+
+      <div class="card">
+        <div class="flex justify-between items-center mb-4">
+          <div class="card-title" style="margin-bottom:0">Movimientos</div>
+          <select id="filtro-caja" onchange="renderMovimientos()" style="background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; color: var(--text); font-size: 13px;">
+            <option value="todas">Todas las cuentas</option>
+            <option value="bancoArs">Banco ARS</option>
+            <option value="bancoUsd">Banco USD</option>
+            <option value="lmc">LMC</option>
+            <option value="ml">ML</option>
+            <option value="urvang">UrVang</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Fecha</th><th>Caja</th><th>Tipo</th><th>Concepto</th><th>Monto</th><th>Saldo Caja</th></tr>
+            </thead>
+            <tbody id="tabla-movimientos"></tbody>
+            <tfoot id="tfoot-movimientos"></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- RENTABILIDAD -->
+    <div id="page-rentabilidad" class="page">
+      <div class="page-header">
+        <div><h2>Análisis de Rentabilidad</h2><p>Punto de equilibrio, TIR y escenarios</p></div>
+      </div>
+
+      <div class="kpi-grid" id="rent-kpis"></div>
+
+      <div class="grid-2 mb-6">
+        <div class="card">
+          <div class="card-title mb-4">Punto de Equilibrio</div>
+          <div id="equilibrio-container"></div>
+        </div>
+        <div class="card">
+          <div class="card-title mb-4">Simulador de Precio</div>
+          <div class="form-group mb-4">
+            <label>Precio promedio por m² objetivo ($)</label>
+            <input type="number" id="sim-precio" placeholder="0" oninput="runSimulador()">
+          </div>
+          <div class="form-group mb-4">
+            <label>% Unidades a vender</label>
+            <input type="number" id="sim-pct" placeholder="100" min="1" max="100" oninput="runSimulador()">
+          </div>
+          <hr class="section-divider">
+          <div id="sim-resultado"></div>
+        </div>
+      </div>
+
+      <div class="card mb-6">
+        <div class="card-title mb-4">Escenarios de Rentabilidad</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Escenario</th><th>Precio/m²</th><th>% Vendido</th><th>Ingreso Total</th><th>Costo Total</th><th>Margen</th><th>TIR Aprox.</th></tr>
+            </thead>
+            <tbody id="tabla-escenarios"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card mb-6">
+        <div class="flex justify-between items-center mb-4">
+          <div class="card-title" style="margin-bottom:0">Estimado vs. Contratado</div>
+          <button class="btn btn-primary btn-sm" onclick="nuevoRegistro('modal-costo-cerrado')">+ Marcar costo cerrado</button>
+        </div>
+        <div class="text-xs text-2 mb-4">El "Estimado" sale de los datos cargados (presupuesto base / monto actual). El "Contratado" lo cargás vos a mano cuando un rubro se cierra — podés agregarlo o sacarlo en cualquier momento, no modifica el costo total del proyecto.</div>
+
+        <div class="mb-2 font-bold text-sm">Costos Blandos</div>
+        <div class="table-wrap mb-6">
+          <table>
+            <thead>
+              <tr><th>Rubro</th><th>Estimado USD</th><th>Contratado USD</th><th>Diferencia</th><th>Estado</th><th>Acciones</th></tr>
+            </thead>
+            <tbody id="tabla-evc-blandos"></tbody>
+            <tfoot id="tfoot-evc-blandos"></tfoot>
+          </table>
+        </div>
+
+        <div class="mb-2 font-bold text-sm">Costos de Obra</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Rubro</th><th>Estimado USD</th><th>Contratado USD</th><th>Diferencia</th><th>Estado</th><th>Acciones</th></tr>
+            </thead>
+            <tbody id="tabla-evc-obra"></tbody>
+            <tfoot id="tfoot-evc-obra"></tfoot>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="flex justify-between items-center mb-4">
+          <div class="card-title" style="margin-bottom:0">Costos Blandos / Tierra / Impuestos (real, hoja "Costos")</div>
+          <div class="flex items-center gap-4">
+            <span class="text-xs text-2" id="costos-blandos-total"></span>
+            <button class="btn btn-primary btn-sm" onclick="nuevoRegistro('modal-costo-blando')">+ Agregar costo</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Categoría</th><th>Rubro</th><th>Total USD</th><th>Pagado USD</th><th>Saldo USD</th><th>% Pagado</th><th>Acciones</th></tr>
+            </thead>
+            <tbody id="tabla-costos-blandos"></tbody>
+            <tfoot id="tfoot-costos-blandos"></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- MODALS -->
+
+<!-- Modal Unidad -->
+<div class="modal-overlay" id="modal-unidad">
+  <div class="modal">
+    <h3 id="modal-unidad-title">Nueva Unidad</h3>
+    <input type="hidden" id="unidad-edit-id">
+    <div class="form-grid">
+      <div class="form-group"><label>Número/Código</label><input type="text" id="u-numero" placeholder="Ej: 1A, 203"></div>
+      <div class="form-group">
+        <label>Tipo</label>
+        <select id="u-tipo">
+          <option value="Local">Local</option>
+          <option value="1 amb">1 amb</option>
+          <option value="2 amb">2 amb</option>
+          <option value="3 amb">3 amb</option>
+          <option value="4 amb">4 amb</option>
+          <option value="PH">PH</option>
+          <option value="Cochera">Cochera</option>
+          <option value="Otro">Otro</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Estado comercial</label>
+        <select id="u-estado">
+          <option value="disponible">Disponible</option>
+          <option value="reservado">Reservado</option>
+          <option value="vendido">Vendido</option>
+          <option value="bloqueado">Bloqueado</option>
+          <option value="canje_tierra">Canje tierra</option>
+          <option value="canje_honorarios">Canje honorarios</option>
+          <option value="canje_obra">Canje obra</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Cliente / Contraparte</label><input type="text" id="u-cliente" placeholder="(opcional)"></div>
+      <div class="form-group"><label>m² Totales</label><input type="number" id="u-m2-total" placeholder="0"></div>
+      <div class="form-group"><label>m² Cubiertos</label><input type="number" id="u-m2-cubierto" placeholder="0"></div>
+      <div class="form-group"><label>m² Semicubiertos</label><input type="number" id="u-m2-semi" placeholder="0"></div>
+      <div class="form-group"><label>Piso</label><input type="text" id="u-piso" placeholder="Ej: 3, PB"></div>
+      <div class="form-group"><label>Orientación</label>
+        <select id="u-orientacion">
+          <option value="">-</option><option value="N">Norte</option><option value="S">Sur</option>
+          <option value="E">Este</option><option value="O">Oeste</option><option value="NE">Noreste</option>
+          <option value="NO">Noroeste</option><option value="SE">Sureste</option><option value="SO">Suroeste</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Precio Lista ($)</label><input type="number" id="u-precio" placeholder="0"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-unidad')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveUnidad()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Venta -->
+<div class="modal-overlay" id="modal-venta">
+  <div class="modal">
+    <h3 id="modal-venta-title">Registrar Venta</h3>
+    <input type="hidden" id="venta-edit-id">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Unidad</label>
+        <select id="v-unidad" onchange="syncPrecioFromUnidad()"></select>
+      </div>
+      <div class="form-group">
+        <label>Estado</label>
+        <select id="v-estado">
+          <option value="reserva">Reserva</option>
+          <option value="boleto">Boleto</option>
+          <option value="escritura">Escritura</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Comprador</label><input type="text" id="v-comprador" placeholder="Nombre completo"></div>
+      <div class="form-group"><label>DNI/CUIT</label><input type="text" id="v-dni" placeholder=""></div>
+      <div class="form-group"><label>Precio de Venta ($)</label><input type="number" id="v-precio" placeholder="0"></div>
+      <div class="form-group"><label>Fecha</label><input type="date" id="v-fecha"></div>
+      <div class="form-group"><label>Seña / Reserva ($)</label><input type="number" id="v-sena" placeholder="0"></div>
+      <div class="form-group"><label>Cuotas</label><input type="number" id="v-cuotas" placeholder="Ej: 24" min="1"></div>
+      <div class="form-group"><label>Cuotas Cobradas</label><input type="number" id="v-cuotas-cobradas" placeholder="0" min="0"></div>
+    </div>
+    <div class="form-group mt-4"><label>Notas</label><textarea id="v-notas" rows="2" style="resize:vertical"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-venta')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveVenta()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Subcontrato -->
+<div class="modal-overlay" id="modal-subcontrato">
+  <div class="modal">
+    <h3 id="modal-subcontrato-title">Nuevo Subcontrato</h3>
+    <input type="hidden" id="sub-edit-id">
+    <div class="form-grid">
+      <div class="form-group"><label>Nombre del Contrato</label><input type="text" id="sub-nombre" placeholder="Ej: Estructura metálica"></div>
+      <div class="form-group">
+        <label>Rubro</label>
+        <select id="sub-rubro">
+          <option value="estructura">Estructura</option>
+          <option value="albanileria">Albanilería</option>
+          <option value="instalaciones">Instalaciones</option>
+          <option value="terminaciones">Terminaciones</option>
+          <option value="fachada">Fachada</option>
+          <option value="electricidad">Electricidad</option>
+          <option value="sanitaria">Sanitaria</option>
+          <option value="hvac">HVAC / Clima</option>
+          <option value="ascensores">Ascensores</option>
+          <option value="pintura">Pintura</option>
+          <option value="vidrios">Vidrios / Aberturas</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Contratista</label><input type="text" id="sub-contratista" placeholder="Empresa o persona"></div>
+      <div class="form-group"><label>Monto Total ($)</label><input type="number" id="sub-monto" placeholder="0"></div>
+      <div class="form-group"><label>Fecha Inicio</label><input type="date" id="sub-inicio"></div>
+      <div class="form-group"><label>Fecha Fin Estimada</label><input type="date" id="sub-fin"></div>
+      <div class="form-group"><label>% Avance Estimado</label><input type="number" id="sub-avance-est" placeholder="0" min="0" max="100"></div>
+    </div>
+    <div class="form-group mt-4"><label>Notas</label><textarea id="sub-notas" rows="2" style="resize:vertical"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-subcontrato')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveSubcontrato()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Certificacion -->
+<div class="modal-overlay" id="modal-certificacion">
+  <div class="modal">
+    <h3>Certificar Avance</h3>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Subcontrato</label>
+        <select id="cert-subcontrato"></select>
+      </div>
+      <div class="form-group"><label>Fecha</label><input type="date" id="cert-fecha"></div>
+      <div class="form-group"><label>Monto Certificado ($)</label><input type="number" id="cert-monto" placeholder="0"></div>
+      <div class="form-group"><label>% Avance Real Acumulado</label><input type="number" id="cert-avance" placeholder="0" min="0" max="100"></div>
+      <div class="form-group"><label>% Avance Obra Global</label><input type="number" id="cert-avance-global" placeholder="0" min="0" max="100"></div>
+    </div>
+    <div class="form-group mt-4"><label>Descripción</label><textarea id="cert-desc" rows="2" style="resize:vertical" placeholder="Trabajos certificados..."></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-certificacion')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveCertificacion()">Certificar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Hito -->
+<div class="modal-overlay" id="modal-hito">
+  <div class="modal">
+    <h3>Agregar Hito</h3>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column: span 2"><label>Nombre del Hito</label><input type="text" id="hito-nombre" placeholder="Ej: Losa nivel 5"></div>
+      <div class="form-group"><label>Fecha Estimada</label><input type="date" id="hito-fecha-est"></div>
+      <div class="form-group"><label>Fecha Real (si ya ocurrió)</label><input type="date" id="hito-fecha-real"></div>
+      <div class="form-group"><label>% de Obra</label><input type="number" id="hito-pct" placeholder="0" min="0" max="100"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-hito')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveHito()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Movimiento -->
+<div class="modal-overlay" id="modal-movimiento">
+  <div class="modal">
+    <h3>Nuevo Movimiento</h3>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Caja</label>
+        <select id="mov-caja" onchange="updateMovMonedaLabel()">
+          <option value="bancoArs">Banco ARS</option>
+          <option value="bancoUsd">Banco USD</option>
+          <option value="lmc">LMC</option>
+          <option value="ml">ML</option>
+          <option value="urvang">UrVang</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Tipo</label>
+        <select id="mov-tipo">
+          <option value="ingreso">Ingreso</option>
+          <option value="egreso">Egreso</option>
+          <option value="transferencia">Transferencia entre cajas</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Fecha</label><input type="date" id="mov-fecha"></div>
+      <div class="form-group"><label id="mov-monto-label">Monto (ARS)</label><input type="number" id="mov-monto" placeholder="0"></div>
+      <div class="form-group" style="grid-column: span 2"><label>Concepto</label><input type="text" id="mov-concepto" placeholder="Descripción del movimiento"></div>
+      <div class="form-group" id="mov-caja-dest-group" style="display:none">
+        <label>Caja Destino</label>
+        <select id="mov-caja-dest">
+          <option value="bancoArs">Banco ARS</option>
+          <option value="bancoUsd">Banco USD</option>
+          <option value="lmc">LMC</option>
+          <option value="ml">ML</option>
+          <option value="urvang">UrVang</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-movimiento')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveMovimiento()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Costo Cerrado (Estimado vs Contratado) -->
+<div class="modal-overlay" id="modal-costo-cerrado">
+  <div class="modal">
+    <h3>Marcar Costo Cerrado</h3>
+    <input type="hidden" id="evc-edit-id">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Tipo</label>
+        <select id="evc-tipo" onchange="updateEvcRubroSelect()">
+          <option value="blando">Costo Blando</option>
+          <option value="obra">Costo de Obra</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Rubro</label>
+        <select id="evc-rubro"></select>
+      </div>
+      <div class="form-group"><label>Monto Contratado (USD)</label><input type="number" id="evc-monto" placeholder="0"></div>
+      <div class="form-group"><label>Fecha de cierre</label><input type="date" id="evc-fecha"></div>
+    </div>
+    <div class="form-group mt-4"><label>Notas</label><textarea id="evc-notas" rows="2" style="resize:vertical" placeholder="Ej: contrato firmado con..."></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-costo-cerrado')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveCostoCerrado()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Costo Blando -->
+<div class="modal-overlay" id="modal-costo-blando">
+  <div class="modal">
+    <h3 id="modal-costo-blando-title">Nuevo Costo Blando</h3>
+    <input type="hidden" id="cb-edit-id">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Categoría</label>
+        <select id="cb-categoria">
+          <option value="a) Demolición">a) Demolición</option>
+          <option value="c) Tierra">c) Tierra</option>
+          <option value="d) Blandos">d) Blandos</option>
+          <option value="e) Impuestos">e) Impuestos</option>
+          <option value="f) Infraestructura">f) Infraestructura</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Rubro</label><input type="text" id="cb-rubro" placeholder="Ej: Honorarios escribano"></div>
+      <div class="form-group"><label>Total USD</label><input type="number" id="cb-total" placeholder="0"></div>
+      <div class="form-group"><label>Pagado USD</label><input type="number" id="cb-pagado" placeholder="0"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-costo-blando')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveCostoBlando()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Desglose por Proveedor (Subcontrato) -->
+<div class="modal-overlay" id="modal-proveedores">
+  <div class="modal" style="width:720px">
+    <h3 id="modal-proveedores-title">Desglose por Proveedor</h3>
+    <input type="hidden" id="prov-sub-id">
+    <div class="text-xs text-2 mb-4">Si un rubro lo cubre más de un proveedor, desglosalo acá. El monto y el pagado del rubro se recalculan automáticamente como la suma de sus proveedores.</div>
+    <div class="table-wrap mb-4">
+      <table>
+        <thead><tr><th>Proveedor</th><th>Monto USD</th><th>Pagado USD</th><th>Saldo</th><th></th></tr></thead>
+        <tbody id="tabla-proveedores"></tbody>
+        <tfoot id="tfoot-proveedores"></tfoot>
+      </table>
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label>Proveedor</label><input type="text" id="prov-nombre" placeholder="Nombre / empresa"></div>
+      <div class="form-group"><label>Monto USD</label><input type="number" id="prov-monto" placeholder="0"></div>
+      <div class="form-group"><label>Pagado USD</label><input type="number" id="prov-pagado" placeholder="0"></div>
+      <div class="form-group" style="align-self:flex-end"><button class="btn btn-success w-full" onclick="addProveedor()">+ Agregar proveedor</button></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('modal-proveedores')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Detalle de Cliente -->
+<div class="modal-overlay" id="modal-cliente-detalle">
+  <div class="modal" style="width:820px">
+    <h3 id="modal-cliente-titulo">Cliente</h3>
+    <div id="modal-cliente-resumen" class="mb-4"></div>
+    <div id="modal-cliente-detalle-container"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('modal-cliente-detalle')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+let state = {
+  proyecto: { nombre: '', ubicacion: '', inicio: '', fin: '', presupuesto: 0, moneda: 'USD' },
+  unidades: [],
+  ventas: [],
+  cocheras: [],
+  costosBlandos: [],
+  subcontratos: [],
+  certificaciones: [],
+  hitos: [],
+  movimientos: [],
+  cronograma: [],
+  costosCerrados: [] // { id, tipo:'blando'|'obra', rubro, montoContratadoUSD, fecha, notas }
+};
+
+const DATA_VERSION = 'stories-v8';
+let _saveTimer = null;
+
+function loadState() {
+  // Carga rápida desde localStorage (cache local) para no mostrar pantalla en blanco
+  // mientras llega la respuesta del servidor compartido.
+  try {
+    const saved = localStorage.getItem('erp-inmobiliario');
+    const version = localStorage.getItem('erp-version');
+    if (saved && version === DATA_VERSION) {
+      state = JSON.parse(saved);
+      if (!state.costosCerrados) state.costosCerrados = [];
+    } else {
+      loadSampleData();
+      try { localStorage.setItem('erp-version', DATA_VERSION); } catch (e) {}
+    }
+  } catch (e) {
+    console.warn('localStorage no disponible. Los datos no se cachean localmente.', e);
+    loadSampleData();
+  }
+
+  // Sincroniza contra el servidor compartido: si hay datos guardados por cualquier
+  // usuario, pisan al estado local y se re-renderiza la página actual.
+  fetch('/api/state')
+    .then(r => r.json())
+    .then(data => {
+      if (data.exists && data.state) {
+        state = data.state;
+        if (!state.costosCerrados) state.costosCerrados = [];
+        try { localStorage.setItem('erp-inmobiliario', JSON.stringify(state)); } catch (e) {}
+        if (typeof currentPage !== 'undefined' && currentPage) renderPage(currentPage);
+      }
+    })
+    .catch(e => console.warn('No se pudo sincronizar con el servidor (¿estás offline?).', e));
+}
+
+function saveState() {
+  try {
+    localStorage.setItem('erp-inmobiliario', JSON.stringify(state));
+  } catch (e) {
+    console.warn('No se pudo guardar en localStorage.', e);
+  }
+  // Debounce: agrupa guardados rápidos consecutivos en un solo POST al servidor compartido.
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(() => {
+    fetch('/api/state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(state)
+    }).catch(e => console.warn('No se pudo guardar en el servidor compartido.', e));
+  }, 500);
+}
+
+function loadSampleData() {
+  // ── STORIES · AMENÁBAR 555 ── datos reales de "Costeo + Cash flow v4.xlsx" y "PANEL DE CONTROL.xlsx" ──
+  const CAC_ABRIL = 20493;
+  const CAC_BASE = 14017.6; // índice base contrato Ago-2024
+  const CAC_RATIO = CAC_ABRIL / CAC_BASE;
+  const TC = 1450; // referencia ARS/USD para mostrar rubros de obra en USD
+
+  state.proyecto = {
+    nombre: 'STORIES · AMENÁBAR 555',
+    ubicacion: 'Amenábar 555, CABA',
+    inicio: '2024-08-01',
+    fin: '2028-06-30',
+    presupuesto: 0, // se calcula dinámicamente: subcontratos + costos blandos
+    moneda: 'USD',
+    tc: TC,
+    cacBase: CAC_BASE, cacActual: CAC_ABRIL,
+  };
+
+  // ── UNIDADES (49 + Local PB) — Pricing unidades, real ──
+  const rawUnidades = [
+    {numero:'PB',piso:'PB',tipo:'Local',m2:94.94,estado:'disponible',precio:350000,precioM2:0,cliente:'',fecha:''},
+    {numero:'1A',piso:'1',tipo:'3 amb',m2:98.66,estado:'canje_tierra',precio:324142.5,precioM2:3129,cliente:'Carolina Fridman',fecha:'2024-04-16'},
+    {numero:'1B',piso:'1',tipo:'2 amb',m2:66.5,estado:'canje_honorarios',precio:221554.73,precioM2:3173,cliente:'Canje Mayer',fecha:''},
+    {numero:'1C',piso:'1',tipo:'2 amb',m2:69.89,estado:'disponible',precio:232849.02,precioM2:3173,cliente:'',fecha:''},
+    {numero:'1D',piso:'1',tipo:'2 amb',m2:73.71,estado:'disponible',precio:245575.92,precioM2:3173,cliente:'',fecha:''},
+    {numero:'1E',piso:'1',tipo:'1 amb',m2:37.65,estado:'vendido',precio:95000,precioM2:2403.85,cliente:'Macarena Marra Gimenez',fecha:'2024-10-02'},
+    {numero:'1F',piso:'1',tipo:'2 amb',m2:75.73,estado:'disponible',precio:243559.04,precioM2:3063,cliente:'',fecha:''},
+    {numero:'1H',piso:'1',tipo:'2 amb',m2:58.59,estado:'canje_tierra',precio:188434.23,precioM2:3063,cliente:'Carolina Fridman',fecha:'2024-04-16'},
+    {numero:'1I',piso:'1',tipo:'4 amb',m2:154.79,estado:'disponible',precio:497827.86,precioM2:3063,cliente:'',fecha:''},
+    {numero:'2A',piso:'2',tipo:'3 amb',m2:96.04,estado:'vendido',precio:223024.75,precioM2:2211.45,cliente:'Pedro Cohen',fecha:'2024-05-14'},
+    {numero:'2B',piso:'2',tipo:'2 amb',m2:66.5,estado:'canje_tierra',precio:232098.3,precioM2:3324,cliente:'Juan Martin Mura',fecha:'2024-04-16'},
+    {numero:'2C',piso:'2',tipo:'2 amb',m2:64.64,estado:'vendido',precio:168333,precioM2:2480.15,cliente:'Alejandro Damian Aruj',fecha:'2024-08-28'},
+    {numero:'2D',piso:'2',tipo:'2 amb',m2:73.75,estado:'disponible',precio:257402.25,precioM2:3324,cliente:'',fecha:''},
+    {numero:'2F',piso:'2',tipo:'1 amb',m2:37.65,estado:'canje_tierra',precio:127176.05,precioM2:3217,cliente:'Carolina Fridman',fecha:'2024-04-16'},
+    {numero:'2G',piso:'2',tipo:'2 amb',m2:75.73,estado:'vendido',precio:134798.47,precioM2:1695.23,cliente:'E. Rubin',fecha:''},
+    {numero:'2H',piso:'2',tipo:'2 amb',m2:58.59,estado:'vendido',precio:151000,precioM2:2454.51,cliente:'Hernan Mariano Gioia',fecha:'2024-05-28'},
+    {numero:'2I',piso:'2',tipo:'4 amb',m2:154.79,estado:'disponible',precio:521232.11,precioM2:3207,cliente:'',fecha:''},
+    {numero:'3A',piso:'3',tipo:'3 amb',m2:98.69,estado:'vendido',precio:228852.73,precioM2:2208.48,cliente:'Pedro Cohen',fecha:'2024-05-14'},
+    {numero:'3B',piso:'3',tipo:'2 amb',m2:64.1,estado:'vendido',precio:168333,precioM2:2501.05,cliente:'Alejandro Damian Aruj',fecha:'2024-08-28'},
+    {numero:'3C',piso:'3',tipo:'2 amb',m2:71.54,estado:'canje_honorarios',precio:199049,precioM2:2649.85,cliente:'Diego Abramzon',fecha:''},
+    {numero:'3D',piso:'3',tipo:'2 amb',m2:77.26,estado:'disponible',precio:268030.39,precioM2:3304,cliente:'',fecha:''},
+    {numero:'3E',piso:'3',tipo:'3 amb',m2:113.96,estado:'vendido',precio:238430,precioM2:1992.6,cliente:'Melanie Trybiarz',fecha:'2024-04-16'},
+    {numero:'3F',piso:'3',tipo:'2 amb',m2:58.93,estado:'vendido',precio:137911.8,precioM2:2228.82,cliente:'Rafael Jaime Masri',fecha:'2024-04-16'},
+    {numero:'3G',piso:'3',tipo:'4 amb',m2:154.79,estado:'canje_tierra',precio:537036.48,precioM2:3304.24,cliente:'Juan Martin Mura',fecha:'2024-04-16'},
+    {numero:'4A',piso:'4',tipo:'3 amb',m2:93.98,estado:'vendido',precio:217935.52,precioM2:2208.53,cliente:'Pedro Cohen',fecha:'2024-05-14'},
+    {numero:'4B',piso:'4',tipo:'2 amb',m2:66.89,estado:'vendido',precio:168333,precioM2:2396.73,cliente:'Alejandro Damian Aruj',fecha:'2024-08-28'},
+    {numero:'4C',piso:'4',tipo:'2 amb',m2:71.61,estado:'canje_tierra',precio:259031.27,precioM2:3445,cliente:'Carolina Fridman',fecha:'2024-04-16'},
+    {numero:'4D',piso:'4',tipo:'2 amb',m2:79.97,estado:'disponible',precio:293134.03,precioM2:3491,cliente:'',fecha:''},
+    {numero:'4E',piso:'4',tipo:'3 amb',m2:113.98,estado:'vendido',precio:247580,precioM2:2068.7,cliente:'Raul Leonardo Trybiarz',fecha:'2024-04-16'},
+    {numero:'4F',piso:'4',tipo:'2 amb',m2:58.95,estado:'vendido',precio:198000,precioM2:3198.84,cliente:'Pecora',fecha:''},
+    {numero:'4G',piso:'4',tipo:'4 amb',m2:154.79,estado:'canje_obra',precio:554550.65,precioM2:3412,cliente:'Canje Mayer',fecha:''},
+    {numero:'5A',piso:'5',tipo:'3 amb',m2:96.85,estado:'disponible',precio:362737.15,precioM2:3567,cliente:'',fecha:''},
+    {numero:'5B',piso:'5',tipo:'3 amb',m2:102.79,estado:'disponible',precio:384984.53,precioM2:3567,cliente:'',fecha:''},
+    {numero:'5C',piso:'5',tipo:'3 amb',m2:105.12,estado:'vendido',precio:299891,precioM2:2716.87,cliente:'Emilio Romano',fecha:''},
+    {numero:'5D',piso:'5',tipo:'4 amb',m2:167.13,estado:'disponible',precio:610886.78,precioM2:3481,cliente:'',fecha:''},
+    {numero:'5E',piso:'5',tipo:'4 amb',m2:160.56,estado:'canje_tierra',precio:586854.83,precioM2:3481,cliente:'Carolina Fridman',fecha:'2024-04-16'},
+    {numero:'6A',piso:'6',tipo:'4 amb',m2:146.59,estado:'disponible',precio:552571.01,precioM2:3590,cliente:'',fecha:''},
+    {numero:'6B',piso:'6',tipo:'4 amb',m2:158.42,estado:'canje_tierra',precio:610970.49,precioM2:3673,cliente:'Juan Martin Mura',fecha:'2024-04-16'},
+    {numero:'6C',piso:'6',tipo:'4 amb',m2:161.84,estado:'disponible',precio:621441.32,precioM2:3657,cliente:'',fecha:''},
+    {numero:'6D',piso:'6',tipo:'4 amb',m2:160.56,estado:'disponible',precio:595284.23,precioM2:3531,cliente:'',fecha:''},
+    {numero:'7A',piso:'7',tipo:'4 amb',m2:146.67,estado:'vendido',precio:570736.97,precioM2:3706,cliente:'Diego Gamero',fecha:'2026-01-30'},
+    {numero:'7B',piso:'7',tipo:'4 amb',m2:150.78,estado:'canje_tierra',precio:599079.1,precioM2:3784,cliente:'Carolina Fridman',fecha:'2024-04-16'},
+    {numero:'7C',piso:'7',tipo:'4 amb',m2:161.84,estado:'canje_tierra',precio:639963.91,precioM2:3766,cliente:'Carolina Fridman',fecha:'2024-04-16'},
+    {numero:'7D',piso:'7',tipo:'4 amb',m2:174.33,estado:'disponible',precio:667021.45,precioM2:3644,cliente:'',fecha:''},
+    {numero:'8A',piso:'8',tipo:'4 amb',m2:137.6,estado:'canje_tierra',precio:553881.05,precioM2:3817,cliente:'Carolina Fridman',fecha:'2024-04-16'},
+    {numero:'8B',piso:'8',tipo:'4 amb',m2:142.82,estado:'disponible',precio:592240.27,precioM2:3928,cliente:'',fecha:''},
+    {numero:'8C',piso:'8',tipo:'4 amb',m2:154.79,estado:'disponible',precio:630764.29,precioM2:3872,cliente:'',fecha:''},
+    {numero:'9A',piso:'9',tipo:'3 amb',m2:156.75,estado:'disponible',precio:643194.84,precioM2:3849,cliente:'',fecha:''},
+    {numero:'9B',piso:'9',tipo:'3 amb',m2:138.55,estado:'disponible',precio:586047.88,precioM2:3951,cliente:'',fecha:''},
+    {numero:'9C',piso:'9',tipo:'3 amb',m2:148.76,estado:'disponible',precio:639843.52,precioM2:3996,cliente:'',fecha:''},
+  ];
+  const unidadIdMap = {};
+  rawUnidades.forEach(u => {
+    const id = uid();
+    unidadIdMap[u.numero] = id;
+    state.unidades.push({
+      id, numero: u.numero, tipo: u.tipo,
+      m2Total: u.m2, m2Cubierto: u.m2, m2Semi: 0,
+      piso: u.piso, orientacion: '',
+      precio: u.precio, precioM2Lista: u.precioM2,
+      estadoComercial: u.estado, // disponible | vendido | canje_tierra | canje_honorarios | canje_obra | bloqueado | reservado
+      cliente: u.cliente, fechaOperacion: u.fecha,
+    });
+  });
+
+  // ── VENTAS REALES (condiciones de pago — hoja "Ventas") ──
+  const ventasReales = [
+    {unidad:'1E',comprador:'Macarena Marra Gimenez',precioTotal:95000,anticipo:93000,cuotaFijaUSD:0,cantCuotas:0,cuotasARSCAC:1000000,cantCuotasARS:2},
+    {unidad:'2A',comprador:'Pedro Cohen',precioTotal:223024.75,anticipo:0,cuotaFijaUSD:0,cantCuotas:0,cuotasARSCAC:0,cantCuotasARS:0},
+    {unidad:'2C',comprador:'Alejandro Aruj',precioTotal:168333,anticipo:115533,cuotaFijaUSD:4400,cantCuotas:12,cuotasARSCAC:0,cantCuotasARS:0},
+    {unidad:'2G',comprador:'Eduardo Rubin',precioTotal:134798.47,anticipo:130000,cuotaFijaUSD:3200,cantCuotas:12,cuotasARSCAC:3000000,cantCuotasARS:1},
+    {unidad:'2H',comprador:'Hernan Mariano Gioia',precioTotal:151000,anticipo:76000,cuotaFijaUSD:12500,cantCuotas:6,cuotasARSCAC:0,cantCuotasARS:0},
+    {unidad:'3A',comprador:'Pedro Cohen',precioTotal:228852.73,anticipo:0,cuotaFijaUSD:0,cantCuotas:0,cuotasARSCAC:0,cantCuotasARS:0},
+    {unidad:'3B',comprador:'Alejandro Aruj',precioTotal:168333,anticipo:115533,cuotaFijaUSD:4400,cantCuotas:12,cuotasARSCAC:0,cantCuotasARS:0},
+    {unidad:'3E',comprador:'Melanie Trybiarz',precioTotal:238430,anticipo:0,cuotaFijaUSD:0,cantCuotas:0,cuotasARSCAC:0,cantCuotasARS:0},
+    {unidad:'3F',comprador:'Rafael Jaime Masri',precioTotal:137911.8,anticipo:0,cuotaFijaUSD:0,cantCuotas:0,cuotasARSCAC:0,cantCuotasARS:0},
+    {unidad:'4A',comprador:'Pedro Cohen',precioTotal:217935.52,anticipo:0,cuotaFijaUSD:0,cantCuotas:0,cuotasARSCAC:0,cantCuotasARS:0},
+    {unidad:'4B',comprador:'Alejandro Aruj',precioTotal:168333,anticipo:115533,cuotaFijaUSD:4400,cantCuotas:12,cuotasARSCAC:0,cantCuotasARS:0},
+    {unidad:'4E',comprador:'Raul Leonardo Trybiarz',precioTotal:247580,anticipo:136169,cuotaFijaUSD:0,cantCuotas:0,cuotasARSCAC:2000000,cantCuotasARS:1},
+    {unidad:'4F',comprador:'Pecora',precioTotal:198000,anticipo:5000,cuotaFijaUSD:4000,cantCuotas:35,cuotasARSCAC:6000000,cantCuotasARS:1},
+    {unidad:'5C',comprador:'Emilio Romano',precioTotal:299887.6,anticipo:300062.13,cuotaFijaUSD:0,cantCuotas:0,cuotasARSCAC:5000000,cantCuotasARS:1},
+    {unidad:'7A',comprador:'Diego Gamero',precioTotal:570724,anticipo:180000,cuotaFijaUSD:0,cantCuotas:0,cuotasARSCAC:8358000,cantCuotasARS:35},
+  ];
+  ventasReales.forEach(v => {
+    const unidadId = unidadIdMap[v.unidad];
+    state.ventas.push({
+      id: uid(), unidadId, comprador: v.comprador, dni: '',
+      estado: 'boleto', precio: v.precioTotal,
+      fecha: rawUnidades.find(u => u.numero === v.unidad)?.fecha || '',
+      sena: v.anticipo, cuotas: v.cantCuotas || v.cantCuotasARS || 0,
+      cuotasCobradas: 0,
+      notas: v.cuotaFijaUSD ? `Cuota fija USD ${v.cuotaFijaUSD}` : (v.cuotasARSCAC ? `Cuotas ARS+CAC: ${v.cantCuotasARS} de $${v.cuotasARSCAC.toLocaleString('es-AR')}` : ''),
+    });
+  });
+
+  // ── COCHERAS + LOCAL (inventario propio — hoja "Pricing cocheras", literal) ──
+  const rawCocheras = [
+    {numero:1,piso:'1°SS',estado:'en_venta',precio:35000,cliente:''},
+    {numero:2,piso:'1°SS',estado:'en_venta',precio:35000,cliente:''},
+    {numero:3,piso:'1°SS',estado:'canje_honorarios',precio:32000,cliente:'Diego ABZ'},
+    {numero:4,piso:'1°SS',estado:'opcion_compra',precio:25000,cliente:'Carolina Fridman'},
+    {numero:5,piso:'1°SS',estado:'en_venta',precio:35000,cliente:''},
+    {numero:6,piso:'1°SS',estado:'en_venta',precio:35000,cliente:''},
+    {numero:7,piso:'1°SS',estado:'en_venta',precio:35000,cliente:''},
+    {numero:8,piso:'1°SS',estado:'opcion_compra',precio:25000,cliente:'Carolina Fridman'},
+    {numero:9,piso:'1°SS',estado:'en_venta',precio:35000,cliente:''},
+    {numero:10,piso:'1°SS',estado:'en_venta',precio:35000,cliente:''},
+    {numero:11,piso:'1°SS',estado:'en_venta',precio:35000,cliente:''},
+    {numero:12,piso:'1°SS',estado:'opcion_compra',precio:25000,cliente:'Carolina Fridman'},
+    {numero:13,piso:'1°SS',estado:'en_venta',precio:35000,cliente:''},
+    {numero:14,piso:'1°SS',estado:'en_venta',precio:35000,cliente:''},
+    {numero:15,piso:'1°SS',estado:'en_venta',precio:35000,cliente:''},
+    {numero:16,piso:'1°SS',estado:'opcion_compra',precio:25000,cliente:'Carolina Fridman'},
+    {numero:17,piso:'1°SS',estado:'en_venta',precio:35000,cliente:''},
+    {numero:18,piso:'1°SS',estado:'en_venta',precio:35000,cliente:''},
+    {numero:19,piso:'1°SS',estado:'en_venta',precio:35000,cliente:''},
+    {numero:20,piso:'1°SS',estado:'opcion_compra',precio:25000,cliente:'Carolina Fridman'},
+    {numero:21,piso:'1°SS',estado:'en_venta',precio:35000,cliente:''},
+    {numero:22,piso:'1°SS',estado:'vendida',precio:37000,cliente:'Romano'},
+    {numero:23,piso:'1°SS',estado:'en_venta',precio:35000,cliente:''},
+    {numero:24,piso:'1°SS',estado:'opcion_compra',precio:25000,cliente:'Carolina Fridman'},
+    {numero:25,piso:'1°SS',estado:'en_venta',precio:35000,cliente:''},
+    {numero:26,piso:'1°SS',estado:'en_venta',precio:35000,cliente:''},
+    {numero:27,piso:'1°SS',estado:'vendida',precio:0,cliente:'Nelson'},
+    {numero:28,piso:'1°SS',estado:'opcion_compra',precio:25000,cliente:'Carolina Fridman'},
+    {numero:29,piso:'2°SS',estado:'vendida',precio:37000,cliente:'Diego Gamero'},
+    {numero:30,piso:'2°SS',estado:'vendida',precio:32000,cliente:'Diego Gamero'},
+    {numero:31,piso:'2°SS',estado:'en_venta',precio:30000,cliente:''},
+    {numero:32,piso:'2°SS',estado:'opcion_compra',precio:25000,cliente:'Carolina Fridman'},
+    {numero:33,piso:'2°SS',estado:'en_venta',precio:30000,cliente:''},
+    {numero:34,piso:'2°SS',estado:'en_venta',precio:30000,cliente:''},
+    {numero:35,piso:'2°SS',estado:'en_venta',precio:30000,cliente:''},
+    {numero:36,piso:'2°SS',estado:'opcion_compra',precio:25000,cliente:'Carolina Fridman'},
+    {numero:37,piso:'2°SS',estado:'en_venta',precio:30000,cliente:''},
+    {numero:38,piso:'2°SS',estado:'en_venta',precio:30000,cliente:''},
+    {numero:39,piso:'2°SS',estado:'en_venta',precio:30000,cliente:''},
+    {numero:40,piso:'2°SS',estado:'opcion_compra',precio:25000,cliente:'Carolina Fridman'},
+    {numero:41,piso:'2°SS',estado:'en_venta',precio:30000,cliente:''},
+    {numero:42,piso:'2°SS',estado:'en_venta',precio:30000,cliente:''},
+    {numero:43,piso:'2°SS',estado:'en_venta',precio:30000,cliente:''},
+    {numero:44,piso:'2°SS',estado:'opcion_compra',precio:25000,cliente:'Carolina Fridman'},
+    {numero:45,piso:'2°SS',estado:'en_venta',precio:30000,cliente:''},
+    {numero:46,piso:'2°SS',estado:'en_venta',precio:30000,cliente:''},
+    {numero:47,piso:'2°SS',estado:'vendida',precio:32000,cliente:'Eduardo Luis Rubin',notas:'¿A qué precio se vendió? Confirmar.'},
+    {numero:48,piso:'2°SS',estado:'en_venta',precio:30000,cliente:''},
+    {numero:49,piso:'2°SS',estado:'en_venta',precio:30000,cliente:''},
+    {numero:50,piso:'2°SS',estado:'en_venta',precio:30000,cliente:''},
+    {numero:51,piso:'2°SS',estado:'en_venta',precio:30000,cliente:''},
+    {numero:52,piso:'2°SS',estado:'en_venta',precio:30000,cliente:''},
+    {numero:53,piso:'2°SS',estado:'en_venta',precio:30000,cliente:''},
+  ];
+  rawCocheras.forEach(c => {
+    state.cocheras.push({ id: uid(), numero: c.numero, piso: c.piso, estado: c.estado, precio: c.precio, cliente: c.cliente || '', notas: c.notas || '' });
+  });
+  state.cocheras.push({ id: uid(), numero: 'Local PB', piso: 'PB', estado: 'disponible', precio: 350000, cliente: '', notas: '' });
+
+  // ── 5 CUENTAS REALES (hoja "CAJAS") — saldo registrado al cierre del archivo ──
+  const FECHA_SALDO = '2026-04-27';
+  const cuentasReales = [
+    {caja:'bancoArs', monto:91473150, moneda:'ARS'},
+    {caja:'bancoUsd', monto:8370, moneda:'USD'},
+    {caja:'lmc', monto:187200, moneda:'USD'},
+    {caja:'ml', monto:250000, moneda:'USD'},
+    {caja:'urvang', monto:14341, moneda:'USD'},
+  ];
+  cuentasReales.forEach(c => {
+    state.movimientos.push({
+      id: uid(), caja: c.caja, tipo: 'ingreso', fecha: FECHA_SALDO,
+      monto: c.monto, concepto: `Saldo registrado (Panel de Control, ${FECHA_SALDO})`,
+    });
+  });
+
+  // ── RUBROS DE OBRA → Subcontratos (29 rubros, hoja "STORIES" de Costeo+Cashflow v4) ──
+  // Actualizados con el CAC de Abril-26 (20.493) para los NO contratados.
+  // ESTRUCTURA está contratada: mantiene su propio índice de contrato (18.534,9).
+  const rubrosObra = [
+    {rubro:'Estructura', presupBaseARS:2951188093.82, contratado:true, montoContratadoARS:3677943529, presupActualizadoARS:3923266761.65, avanceEst:74},
+    {rubro:'Obra húmeda + DLK', presupBaseARS:2626273179.15, contratado:false},
+    {rubro:'Inst. eléctrica + PE', presupBaseARS:876042130.66, contratado:false},
+    {rubro:'Inst. sanitaria + gas + incendio', presupBaseARS:855256538.59, contratado:false},
+    {rubro:'Bombas sanitarias e incendio', presupBaseARS:116625890.82, contratado:false},
+    {rubro:'Calderas', presupBaseARS:96884302.77, contratado:false},
+    {rubro:'Puertas y marcos de chapa', presupBaseARS:33434582.92, contratado:false},
+    {rubro:'Herrerías', presupBaseARS:79430315.14, contratado:false},
+    {rubro:'Carpintería de aluminio', presupBaseARS:433576810.56, contratado:false},
+    {rubro:'Barandas de aluminio', presupBaseARS:166419258.06, contratado:false},
+    {rubro:'Carp. esp. planta baja', presupBaseARS:75704701.58, contratado:false},
+    {rubro:'Puertas de madera (MCH/HM)', presupBaseARS:144184158.06, contratado:false},
+    {rubro:'Ascensores ppales', presupBaseARS:433666207.84, contratado:false},
+    {rubro:'Ascensor servicio', presupBaseARS:137519342.05, contratado:false},
+    {rubro:'Inst. ventilación (SS-B°-cocinas)', presupBaseARS:204597628.91, contratado:false},
+    {rubro:'Preinstalación AA', presupBaseARS:77172858.59, contratado:false},
+    {rubro:'Pisos y revestimientos', presupBaseARS:124038726.73, contratado:false},
+    {rubro:'Artefactos y griferías', presupBaseARS:271893782.97, contratado:false},
+    {rubro:'Muebles de cocina + FP', presupBaseARS:177677095.05, contratado:false},
+    {rubro:'Pintura', presupBaseARS:216734326.63, contratado:false},
+    {rubro:'Hornos + anafes', presupBaseARS:126479192.03, contratado:false},
+    {rubro:'Solados vinílico', presupBaseARS:68006746.23, contratado:false},
+    {rubro:'Marmolería cocinas', presupBaseARS:79049545.31, contratado:false},
+    {rubro:'Marmolería baños', presupBaseARS:18773428.91, contratado:false},
+    {rubro:'Herrajes', presupBaseARS:7969767.56, contratado:false},
+    {rubro:'Accesorios de baños', presupBaseARS:12041661.71, contratado:false},
+    {rubro:'Artefactos de luz', presupBaseARS:38365444.14, contratado:false},
+    {rubro:'Control de incendio', presupBaseARS:29511879.42, contratado:false},
+    {rubro:'Varios', presupBaseARS:147559403.79, contratado:false},
+  ];
+  rubrosObra.forEach(r => {
+    const presupActualizadoARS = r.contratado ? r.presupActualizadoARS : Math.round(r.presupBaseARS * CAC_RATIO * 100) / 100;
+    const montoUSD = Math.round(presupActualizadoARS / TC);
+    state.subcontratos.push({
+      id: uid(), nombre: r.rubro, rubro: r.contratado ? 'contratado' : 'pendiente',
+      contratista: r.contratado ? 'Contratado (índice propio 18.534,9)' : '—',
+      monto: montoUSD, presupuestoBaseARS: Math.round(r.presupBaseARS), presupuestoActualizadoARS: Math.round(presupActualizadoARS),
+      inicio: '2026-01-01', fin: '2028-06-30',
+      avanceEst: r.avanceEst || 0, avanceReal: 0, pagado: 0,
+      notas: r.contratado
+        ? `Monto contratado: $${(r.montoContratadoARS/1e6).toFixed(1)}M ARS`
+        : `Actualizado con CAC abril (${CAC_ABRIL}) — antes $${(r.presupBaseARS/1e6).toFixed(0)}M base`,
+    });
+  });
+
+  // ── CANJE DE OBRA: unidad 4G (Canje Mayer) paga en especie el 26,37% del contrato de Estructura/Hormigón ──
+  const PCT_CANJE_HORMIGON = 0.2637;
+  const estructuraSub = state.subcontratos.find(s => s.nombre === 'Estructura');
+  if (estructuraSub) {
+    const pagoEnEspecie = Math.round(estructuraSub.monto * PCT_CANJE_HORMIGON);
+    estructuraSub.pagado += pagoEnEspecie;
+    estructuraSub.notas += ` · Canje obra (unidad 4G, Canje Mayer): ${fmtPct(PCT_CANJE_HORMIGON*100)} pagado en especie (${fmt(pagoEnEspecie)})`;
+  }
+
+  // ── CURVA DE AVANCE — Cotización Zaga Lisbona (Excavación + HºAº), SIN platea ──
+  // Total contrato sin platea: $2.723.309.656 ARS (mes base dic-2024). 18 meses, inicio Ene-26.
+  // Hoy (jun-26) la obra va ~2-3 meses atrasada: recién entrando en submuración 2° subsuelo.
+  if (estructuraSub) {
+    estructuraSub.cronogramaProyectado = {
+      'Ene-26':11.43,'Feb-26':4.33,'Mar-26':11.34,'Abr-26':5.43,'May-26':9.09,
+      'Jun-26':12.88,'Jul-26':6.05,'Ago-26':4.75,'Sep-26':4.72,'Oct-26':4.74,
+      'Nov-26':4.84,'Dic-26':4.16,'Ene-27':4.18,'Feb-27':4.14,'Mar-27':4.77,
+      'Abr-27':2.17,'May-27':0.61,'Jun-27':0.37,
+    };
+    estructuraSub.avanceEst = 54.5; // donde DEBERÍA estar hoy (jun-26) según la curva, sin atraso
+    estructuraSub.avanceReal = 27.1; // donde está REALMENTE hoy: terminó base corrida, entrando en submuración 2°SS
+    estructuraSub.fin = '2027-09-30'; // corrida ~2-3 meses por el atraso (antes 2027-06-30)
+    estructuraSub.notas += ' · Avance real jun-26: recién entrando en submuración 2° subsuelo (≈2-3 meses de atraso vs. curva contractual)';
+  }
+
+  // ── COSTOS BLANDOS / TIERRA / IMPUESTOS (hoja "Costos", detallado real) ──
+  const costosBlandosData = [
+    {cat:'a) Demolición', rubro:'Demolición', totalUSD:79914.43, pagadoUSD:62239.44},
+    // Nota: "Costo estimado obra según GSA" (≈US$9,58M) se excluye aquí — ya está
+    // representado en detalle por los 29 rubros de Subcontratos (evita doble conteo).
+    {cat:'c) Tierra', rubro:'Costo Terreno (cash)', totalUSD:1000000, pagadoUSD:1000000},
+    {cat:'c) Tierra', rubro:'Plusvalía', totalUSD:268796.66, pagadoUSD:0},
+    {cat:'d) Blandos', rubro:'Proyecto (Abramzon)', totalUSD:232820, pagadoUSD:0},
+    {cat:'d) Blandos', rubro:'Gestión municipal (Abramzon)', totalUSD:43500, pagadoUSD:38500},
+    {cat:'d) Blandos', rubro:'Flux paisajismo', totalUSD:1500, pagadoUSD:1500},
+    {cat:'d) Blandos', rubro:'Almost real viz renders', totalUSD:5250, pagadoUSD:5250},
+    {cat:'d) Blandos', rubro:'DO y Gerenciamiento (Sambresqui)', totalUSD:255087.87, pagadoUSD:5070.42},
+    {cat:'d) Blandos', rubro:'Cálculo estructural (Calissano)', totalUSD:16371.78, pagadoUSD:9295.77},
+    {cat:'d) Blandos', rubro:'Asesoría contable (Ploskinos)', totalUSD:16901.41, pagadoUSD:3864.59},
+    {cat:'d) Blandos', rubro:'Asesoría instalaciones (GNBA)', totalUSD:19795.93, pagadoUSD:19795.93},
+    {cat:'d) Blandos', rubro:'CPAU', totalUSD:173.24, pagadoUSD:173.24},
+    {cat:'d) Blandos', rubro:'CPIC (Estructuras)', totalUSD:221.13, pagadoUSD:221.13},
+    {cat:'d) Blandos', rubro:'Otros derechos (1%)', totalUSD:95770.67, pagadoUSD:0},
+    {cat:'d) Blandos', rubro:'Remolino (marketing)', totalUSD:26000, pagadoUSD:22750},
+    {cat:'d) Blandos', rubro:'Cámara time lapse', totalUSD:4683.10, pagadoUSD:669.01},
+    {cat:'d) Blandos', rubro:'Registro de marca (IACONA)', totalUSD:69.37, pagadoUSD:69.37},
+    {cat:'d) Blandos', rubro:'Comisión inmobiliaria (ITW)', totalUSD:80000, pagadoUSD:950},
+    {cat:'d) Blandos', rubro:'Servicios fiduciarios (AGALE)', totalUSD:72000, pagadoUSD:17454},
+    {cat:'d) Blandos', rubro:'Escribanía (Cernadas)', totalUSD:39334.30, pagadoUSD:39334.30},
+    {cat:'d) Blandos', rubro:'Escribanía (Goldman)', totalUSD:4816.44, pagadoUSD:4816.44},
+    {cat:'d) Blandos', rubro:'Otros (1% estimado)', totalUSD:95770.67, pagadoUSD:5935.97},
+    {cat:'e) Impuestos', rubro:'Impuestos / sellos', totalUSD:1280575.11, pagadoUSD:0},
+    {cat:'f) Infraestructura', rubro:'Obra AYSA', totalUSD:200000, pagadoUSD:0},
+  ];
+  costosBlandosData.forEach(c => {
+    state.costosBlandos.push({ id: uid(), categoria: c.cat, rubro: c.rubro, totalUSD: c.totalUSD, pagadoUSD: c.pagadoUSD });
+  });
+
+  // ── CANJE DE HONORARIOS: Diego Abramzon paga en especie el "Proyecto (Abramzon)"
+  // con la unidad 3C (canje_honorarios, $199.049) + cochera #3 (canje_honorarios, $32.000) ──
+  const proyectoAbramzon = state.costosBlandos.find(c => c.rubro === 'Proyecto (Abramzon)');
+  if (proyectoAbramzon) {
+    const valorCanjeAbramzon =
+      (state.unidades.find(u => u.numero === '3C')?.precio || 0) +
+      (state.cocheras.find(c => c.numero === 3)?.precio || 0);
+    proyectoAbramzon.pagadoUSD = Math.min(proyectoAbramzon.totalUSD, valorCanjeAbramzon);
+  }
+
+  // ── PRESUPUESTO TOTAL DEL PROYECTO (dinámico) ──
+  const totalObraUSD = state.subcontratos.reduce((s, x) => s + x.monto, 0);
+  const totalBlandosUSD = state.costosBlandos.reduce((s, x) => s + x.totalUSD, 0);
+  state.proyecto.presupuesto = Math.round(totalObraUSD + totalBlandosUSD);
+
+  // ── HITOS DE OBRA ──
+  state.hitos = [
+    {id:uid(),nombre:'Inicio de obra',fechaEst:'2026-01-01',fechaReal:'',pct:0},
+    {id:uid(),nombre:'Estructura completa',fechaEst:'2027-02-28',fechaReal:'',pct:18},
+    {id:uid(),nombre:'Instalaciones y terminaciones',fechaEst:'2027-06-30',fechaReal:'',pct:55},
+    {id:uid(),nombre:'Obra húmeda finalizada',fechaEst:'2028-01-31',fechaReal:'',pct:75},
+    {id:uid(),nombre:'Entrega de unidades',fechaEst:'2028-06-30',fechaReal:'',pct:100},
+  ];
+
+  saveState();
+}
+
+function uid() { return Math.random().toString(36).slice(2, 10); }
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+let currentPage = 'dashboard';
+function navigate(page) {
+  currentPage = page;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const pageEl = document.getElementById('page-' + page);
+  if (pageEl) pageEl.classList.add('active');
+  // Marca el ítem activo buscando por el onclick (robusto: no depende del global `event`,
+  // así navigate() también funciona cuando se la llama por código, no solo desde un click).
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.getAttribute('onclick') && n.getAttribute('onclick').includes("'" + page + "'")) n.classList.add('active');
+  });
+  renderPage(page);
+}
+
+function renderPage(page) {
+  if (page === 'dashboard') renderDashboard();
+  if (page === 'proyecto') renderProyecto();
+  if (page === 'ventas') renderVentas();
+  if (page === 'clientes') renderClientes();
+  if (page === 'subcontratos') renderSubcontratos();
+  if (page === 'cronograma') renderCronograma();
+  if (page === 'cajas') renderCajas();
+  if (page === 'rentabilidad') renderRentabilidad();
+}
+
+// ============================================================
+// FORMAT
+// ============================================================
+function fmt(n, decimals = 0) {
+  if (n === undefined || n === null || isNaN(n)) return '$0';
+  return '$' + Number(n).toLocaleString('es-AR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+function fmtPct(n) { return (Number(n) || 0).toFixed(1) + '%'; }
+function fmtNum(n) { return Number(n).toLocaleString('es-AR'); }
+
+// ============================================================
+// CALCULATIONS
+// ============================================================
+function getVentaData(v) {
+  const u = state.unidades.find(x => x.id === v.unidadId);
+  return { ...v, unidad: u };
+}
+
+function calcKPIs() {
+  const unidades = state.unidades;
+  const ventas = state.ventas.map(getVentaData).filter(v => v.unidad);
+  const subcontratos = state.subcontratos;
+
+  const totalUnidades = unidades.length;
+  const totalM2 = unidades.reduce((s, u) => s + (u.m2Total || 0), 0);
+
+  // Disposición real por unidad (estadoComercial), no solo por ventas registradas
+  const vendidasU = unidades.filter(u => u.estadoComercial === 'vendido');
+  const canjeU = unidades.filter(u => (u.estadoComercial || '').startsWith('canje_'));
+  const bloqueadasU = unidades.filter(u => u.estadoComercial === 'bloqueado');
+  const reservadasU = unidades.filter(u => u.estadoComercial === 'reservado');
+  const disponibles = unidades.filter(u => u.estadoComercial === 'disponible');
+
+  const escrituras = ventas.filter(v => v.estado === 'escritura');
+  const boletos = ventas.filter(v => v.estado === 'boleto');
+  const reservas = ventas.filter(v => v.estado === 'reserva');
+
+  const ingresoVentas = vendidasU.reduce((s, u) => s + (u.precio || 0), 0);
+  const m2Vendido = vendidasU.reduce((s, u) => s + (u.m2Total || 0), 0);
+  const precioPromedioVendido = m2Vendido > 0 ? ingresoVentas / m2Vendido : 0;
+
+  const valorCanjeado = canjeU.reduce((s, u) => s + (u.precio || 0), 0);
+  const m2Canjeado = canjeU.reduce((s, u) => s + (u.m2Total || 0), 0);
+
+  const listaDisponibles = disponibles.reduce((s, u) => s + (u.precio || 0), 0);
+  const m2Disponible = disponibles.reduce((s, u) => s + (u.m2Total || 0), 0);
+  const precioPromedioLista = m2Disponible > 0 ? listaDisponibles / m2Disponible : 0;
+
+  // Costo total dinámico: rubros de obra (subcontratos) + costos blandos/tierra/impuestos
+  const costoSubcontratos = subcontratos.reduce((s, c) => s + (c.monto || 0), 0);
+  const pagadoSubcontratos = subcontratos.reduce((s, c) => s + (c.pagado || 0), 0);
+  const costoBlandos = state.costosBlandos.reduce((s, c) => s + (c.totalUSD || 0), 0);
+  const pagadoBlandos = state.costosBlandos.reduce((s, c) => s + (c.pagadoUSD || 0), 0);
+  const costoTotal = costoSubcontratos + costoBlandos;
+  const pagadoTotal = pagadoSubcontratos + pagadoBlandos;
+
+  // Avance real global (de certificaciones)
+  const certs = state.certificaciones;
+  const avanceReal = certs.length > 0 ? Math.max(...certs.map(c => c.avanceGlobal || 0)) : 0;
+  const avanceEstimado = calcAvanceEstimado();
+
+  const saldoSubcontratos = costoTotal - pagadoTotal;
+
+  // Cocheras + Local (precio fijo, no varían en escenarios de break-even)
+  const cocherasVendidas = state.cocheras.filter(c => c.estado === 'vendida');
+  const cocherasCanje = state.cocheras.filter(c => (c.estado||'').startsWith('canje'));
+  const cocherasOpcion = state.cocheras.filter(c => c.estado === 'opcion_compra');
+  const cocherasEnVenta = state.cocheras.filter(c => c.estado === 'en_venta' || c.estado === 'disponible');
+  const ingresoCocheras = cocherasVendidas.reduce((s, c) => s + (c.precio || 0), 0);
+  const listaCocherasDisponibles = cocherasEnVenta.reduce((s, c) => s + (c.precio || 0), 0);
+  const valorCanjeCocheras = cocherasCanje.reduce((s, c) => s + (c.precio || 0), 0);
+  // Solo cocheras (excluye canjeadas y excluye "Local PB": el Local ya está contado una vez
+  // como unidad en listaDisponibles/ingresoVentas — sumarlo de nuevo acá lo duplicaba).
+  const cocherasTotalFijo = state.cocheras
+    .filter(c => !(c.estado || '').startsWith('canje') && c.numero !== 'Local PB')
+    .reduce((s, c) => s + (c.precio || 0), 0);
+
+  // Cobrado real
+  const cobrado = calcCobradoReal();
+
+  // Ingreso total proyectado en EFECTIVO = ventas cerradas + disponibles a precio lista + cocheras/local fijo.
+  // El valor canjeado (tierra/honorarios/obra) NO se suma acá: es trueque, no genera caja para pagar la obra.
+  // Su efecto en costos ya se refleja donde corresponde (ver pago en especie de Estructura).
+  const ingresoTotalProyectado = ingresoVentas + listaDisponibles + cocherasTotalFijo;
+  const margenBruto = ingresoTotalProyectado - costoTotal;
+  const margenPct = costoTotal > 0 ? (margenBruto / costoTotal * 100) : 0;
+
+  return {
+    totalUnidades, totalM2,
+    vendidas: vendidasU.length, disponibles: disponibles.length,
+    canje: canjeU.length, valorCanjeado, m2Canjeado,
+    bloqueadas: bloqueadasU.length, reservadas: reservadasU.length,
+    escrituras: escrituras.length, boletos: boletos.length, reservas: reservas.length,
+    ingresoVentas, m2Vendido, precioPromedioVendido,
+    listaDisponibles, m2Disponible, precioPromedioLista,
+    costoTotal, costoSubcontratos, pagadoSubcontratos, costoBlandos, pagadoBlandos, pagadoTotal, saldoSubcontratos,
+    avanceReal, avanceEstimado,
+    pctVendido: totalUnidades > 0 ? (vendidasU.length / totalUnidades * 100) : 0,
+    cobrado,
+    cocherasVendidas: cocherasVendidas.length, ingresoCocheras, listaCocherasDisponibles, cocherasTotalFijo, valorCanjeCocheras,
+    cocherasTotal: state.cocheras.length, cocherasCanje: cocherasCanje.length,
+    cocherasOpcion: cocherasOpcion.length, cocherasEnVenta: cocherasEnVenta.length,
+    ingresoTotalProyectado,
+    margenBruto, margenPct,
+  };
+}
+
+function calcAvanceEstimado() {
+  const hitos = state.hitos.sort((a, b) => new Date(a.fechaEst) - new Date(b.fechaEst));
+  const hoy = new Date();
+  let avance = 0;
+  for (let i = 0; i < hitos.length - 1; i++) {
+    const h1 = hitos[i], h2 = hitos[i + 1];
+    const d1 = new Date(h1.fechaEst), d2 = new Date(h2.fechaEst);
+    if (hoy >= d2) { avance = h2.pct; continue; }
+    if (hoy >= d1 && hoy < d2) {
+      const pct = (hoy - d1) / (d2 - d1);
+      avance = h1.pct + (h2.pct - h1.pct) * pct;
+      break;
+    }
+  }
+  return Math.min(100, Math.max(0, avance));
+}
+
+function calcCobradoReal() {
+  // Convierte todo a USD antes de sumar, ya que las cajas mezclan ARS (Banco ARS) y USD (resto)
+  const tc = state.proyecto.tc || 1450;
+  return state.movimientos.filter(m => m.tipo === 'ingreso').reduce((s, m) => {
+    const moneda = cajaInfo[m.caja]?.moneda || 'USD';
+    const montoUSD = moneda === 'ARS' ? (m.monto || 0) / tc : (m.monto || 0);
+    return s + montoUSD;
+  }, 0);
+}
+
+function calcSaldoCaja(caja) {
+  return state.movimientos
+    .filter(m => m.caja === caja)
+    .reduce((s, m) => m.tipo === 'ingreso' ? s + m.monto : s - m.monto, 0);
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function renderDashboard() {
+  const kpis = calcKPIs();
+  const moneda = state.proyecto.moneda || 'USD';
+
+  // Salud de caja: cruza el cashflow proyectado con el saldo real consolidado de las 5 cuentas.
+  const cashflowGlobal = calcCashflowMensualGlobal();
+  const cajaConsolidadaUSD = calcSaldoCajaConsolidadoUSD();
+  let mesSinCaja = null;
+  if (cashflowGlobal) {
+    const futuras = cashflowGlobal.filas.filter(f => f.saldoProyectado !== null);
+    const primeraNegativa = futuras.find(f => f.saldoProyectado < 0);
+    if (primeraNegativa) mesSinCaja = primeraNegativa.mesDate;
+  }
+
+  document.getElementById('project-name-sidebar').textContent = state.proyecto.nombre || 'Sin proyecto';
+  document.getElementById('dash-subtitle').textContent = state.proyecto.nombre ? `${state.proyecto.nombre} — ${state.proyecto.ubicacion}` : 'Configure el proyecto primero';
+
+  // Semáforo
+  const margenOk = kpis.margenPct > 20;
+  const avanceOk = Math.abs(kpis.avanceReal - kpis.avanceEstimado) < 10;
+  const ventasOk = kpis.pctVendido > 50;
+  const score = [margenOk, avanceOk, ventasOk].filter(Boolean).length;
+  document.getElementById('sem-verde').classList.toggle('active', score === 3);
+  document.getElementById('sem-amarillo').classList.toggle('active', score === 2);
+  document.getElementById('sem-rojo').classList.toggle('active', score <= 1);
+
+  // KPIs
+  document.getElementById('dash-kpis').innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Precio Vendido Prom/m²</div>
+      <div class="kpi-value text-accent">${fmt(kpis.precioPromedioVendido)}</div>
+      <div class="kpi-sub">${fmtNum(kpis.m2Vendido)} m² vendidos</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Precio Lista Prom/m² (Stock)</div>
+      <div class="kpi-value" style="color:var(--accent2)">${fmt(kpis.precioPromedioLista)}</div>
+      <div class="kpi-sub">${fmtNum(kpis.m2Disponible)} m² disponibles</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">% Vendido</div>
+      <div class="kpi-value ${kpis.pctVendido >= 50 ? 'text-green' : 'text-yellow'}">${fmtPct(kpis.pctVendido)}</div>
+      <div class="kpi-sub">${kpis.vendidas}/${kpis.totalUnidades} unidades</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Avance Real de Obra</div>
+      <div class="kpi-value text-accent">${fmtPct(kpis.avanceReal)}</div>
+      <div class="kpi-sub">Estimado: ${fmtPct(kpis.avanceEstimado)}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Margen Bruto Proyectado</div>
+      <div class="kpi-value ${kpis.margenBruto >= 0 ? 'text-green' : 'text-red'}">${fmtPct(kpis.margenPct)}</div>
+      <div class="kpi-sub">${fmt(kpis.margenBruto)} · sobre ${fmt(kpis.ingresoTotalProyectado)} de ingreso total</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Cobrado Real</div>
+      <div class="kpi-value text-green">${fmt(kpis.cobrado)}</div>
+      <div class="kpi-sub">de ${fmt(kpis.ingresoVentas)} comprometido</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Saldo por Pagar (obra + blandos)</div>
+      <div class="kpi-value text-yellow">${fmt(kpis.saldoSubcontratos)}</div>
+      <div class="kpi-sub">de ${fmt(kpis.costoTotal)} costo total</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Ingreso Total Lista</div>
+      <div class="kpi-value">${fmt(kpis.ingresoVentas + kpis.listaDisponibles)}</div>
+      <div class="kpi-sub">si se vende todo al precio lista</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Valor Canjeado</div>
+      <div class="kpi-value" style="color:#a78bfa">${fmt(kpis.valorCanjeado)}</div>
+      <div class="kpi-sub">${kpis.canje} unidades (tierra/honorarios/obra)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Cocheras + Local</div>
+      <div class="kpi-value text-green">${fmt(kpis.ingresoCocheras)}</div>
+      <div class="kpi-sub">${kpis.cocherasVendidas}/${state.cocheras.length} vendidas · ${fmt(kpis.listaCocherasDisponibles)} en lista</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Caja Consolidada Real</div>
+      <div class="kpi-value ${cajaConsolidadaUSD >= 0 ? 'text-green' : 'text-red'}">${fmt(cajaConsolidadaUSD)}</div>
+      <div class="kpi-sub">${mesSinCaja ? `<span class="text-red">⚠ sin caja desde ${fmtMes(mesSinCaja)}</span>` : 'cashflow proyectado no muestra déficit'}</div>
+    </div>
+  `;
+
+  // Stock de unidades y cocheras+local
+  renderStockBreakdown(kpis);
+
+  // Cashflow chart (simple 6-month projection)
+  renderCashflowChart();
+
+  // Ventas por tipo chart
+  renderVentasChart(kpis);
+
+  // Alertas
+  const alertas = [];
+  if (kpis.avanceEstimado - kpis.avanceReal > 10) alertas.push({ tipo: 'warning', msg: `⚠️ Obra retrasada: ${fmtPct(kpis.avanceEstimado - kpis.avanceReal)} de desvío respecto al cronograma` });
+  if (kpis.pctVendido < 30) alertas.push({ tipo: 'danger', msg: `🔴 Ventas bajas: solo ${fmtPct(kpis.pctVendido)} vendido. Revisar estrategia comercial.` });
+  if (kpis.margenPct < 15) alertas.push({ tipo: 'danger', msg: `🔴 Margen crítico: ${fmtPct(kpis.margenPct)}. Costo supera ingresos proyectados.` });
+  if (mesSinCaja) alertas.push({ tipo: 'danger', msg: `🔴 Caja proyectada en negativo a partir de ${fmtMes(mesSinCaja)}: con el cashflow proyectado actual, la caja consolidada (${fmt(cajaConsolidadaUSD)} hoy) no alcanza para cubrir la obra desde ese mes. Ver Cronograma → Mes a Mes.` });
+  const cajaTotalNegativa = Object.keys(cajaInfo).find(c => calcSaldoCaja(c) < 0);
+  if (cajaTotalNegativa) alertas.push({ tipo: 'danger', msg: `🔴 Cuenta ${cajaInfo[cajaTotalNegativa].nombre} en negativo` });
+  const cocheraSinPrecio = state.cocheras.find(c => c.notas && c.notas.includes('Confirmar'));
+  if (cocheraSinPrecio) alertas.push({ tipo: 'warning', msg: `⚠️ Cochera ${cocheraSinPrecio.numero}: ${cocheraSinPrecio.notas}` });
+  if (alertas.length === 0) alertas.push({ tipo: 'success', msg: '✅ Todos los indicadores dentro de parámetros normales.' });
+  document.getElementById('alertas-container').innerHTML = alertas.map(a => `<div class="alert alert-${a.tipo}">${a.msg}</div>`).join('');
+
+  // Subcontratos críticos (con mayor desvío)
+  const criticos = state.subcontratos
+    .map(s => ({ ...s, desvio: (s.avanceEst || 0) - (s.avanceReal || 0) }))
+    .sort((a, b) => b.desvio - a.desvio)
+    .slice(0, 3);
+  document.getElementById('subcontratos-criticos').innerHTML = criticos.length === 0 ? '<p class="text-2 text-sm">Sin subcontratos.</p>' :
+    criticos.map(s => `
+      <div class="flex justify-between items-center" style="padding:10px 0; border-bottom:1px solid var(--border)">
+        <div>
+          <div class="text-sm font-bold">${s.nombre}</div>
+          <div class="text-xs text-2">${s.contratista}</div>
+        </div>
+        <div class="text-right">
+          <div class="text-sm ${s.desvio > 10 ? 'text-red' : s.desvio > 0 ? 'text-yellow' : 'text-green'}">${s.desvio > 0 ? '-' : '+'}${Math.abs(s.desvio)}% desvío</div>
+          <div class="text-xs text-2">${fmtPct(s.avanceReal)} real vs ${fmtPct(s.avanceEst)} est.</div>
+        </div>
+      </div>
+    `).join('');
+}
+
+function renderCashflowChart() {
+  const months = [];
+  const hoy = new Date();
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(hoy.getFullYear(), hoy.getMonth() + i, 1);
+    months.push({ label: d.toLocaleString('es-AR', { month: 'short' }), date: d });
+  }
+
+  // Ingresos: cuotas pendientes de ventas firmes (boleto/escritura) — monto fijo de cuota, no aleatorio.
+  const ventasActivas = state.ventas.filter(v => v.estado === 'boleto' || v.estado === 'escritura');
+  const ingresosPorMes = months.map(() => 0);
+  ventasActivas.forEach(v => {
+    const cuotaValor = v.cuotas > 0 ? (v.precio - (v.sena || 0)) / v.cuotas : 0;
+    const pendientes = Math.max(0, (v.cuotas || 0) - (v.cuotasCobradas || 0));
+    for (let i = 0; i < Math.min(6, pendientes); i++) ingresosPorMes[i] += cuotaValor;
+  });
+
+  // Egresos: saldo pendiente de cada subcontrato, distribuido linealmente entre hoy y su fecha de fin.
+  const egresosPorMes = months.map(() => 0);
+  state.subcontratos.forEach(s => {
+    const saldo = (s.monto || 0) - (s.pagado || 0);
+    if (saldo <= 0) return;
+    const fin = s.fin ? new Date(s.fin) : null;
+    const mesesRestantes = fin ? Math.max(1, Math.round((fin - hoy) / (1000 * 60 * 60 * 24 * 30.44))) : 12;
+    const cuotaMensual = saldo / mesesRestantes;
+    for (let i = 0; i < Math.min(6, mesesRestantes); i++) egresosPorMes[i] += cuotaMensual;
+  });
+
+  const datos = months.map((m, i) => ({ mes: m.label, ingreso: ingresosPorMes[i], egreso: egresosPorMes[i] }));
+
+  const maxVal = Math.max(...datos.map(d => Math.max(d.ingreso, d.egreso)));
+  const h = 180;
+
+  const chart = document.getElementById('cf-chart');
+  chart.innerHTML = datos.map(d => {
+    const hI = maxVal > 0 ? (d.ingreso / maxVal) * h : 2;
+    const hE = maxVal > 0 ? (d.egreso / maxVal) * h : 2;
+    const hN = maxVal > 0 ? (Math.abs(d.ingreso - d.egreso) / maxVal) * h : 2;
+    const neto = d.ingreso - d.egreso;
+    return `
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;">
+        <div style="display:flex;gap:2px;align-items:flex-end;height:${h}px;">
+          <div class="chart-bar" style="background:var(--green);height:${hI}px;width:10px" title="Ingreso: ${fmt(d.ingreso)}"></div>
+          <div class="chart-bar" style="background:var(--red);height:${hE}px;width:10px" title="Egreso: ${fmt(d.egreso)}"></div>
+          <div class="chart-bar" style="background:var(--accent);height:${hN}px;width:10px;opacity:0.8" title="Neto: ${fmt(neto)}"></div>
+        </div>
+        <div class="chart-label">${d.mes}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderStockBreakdown(kpis) {
+  const filaCant = (label, valor, total, color) => `
+    <div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px">
+        <span class="text-2">${label}</span>
+        <span class="font-bold">${valor} <span class="text-2" style="font-weight:normal">(${total > 0 ? fmtPct(valor / total * 100) : '0%'})</span></span>
+      </div>
+      <div style="background:var(--surface2);border-radius:4px;height:8px;overflow:hidden">
+        <div style="background:${color};height:100%;width:${total > 0 ? (valor / total * 100) : 0}%"></div>
+      </div>
+    </div>
+  `;
+
+  const filaM2 = (label, valor, total, color) => `
+    <div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px">
+        <span class="text-2">${label}</span>
+        <span class="font-bold">${fmtNum(valor)} m² <span class="text-2" style="font-weight:normal">(${total > 0 ? fmtPct(valor / total * 100) : '0%'})</span></span>
+      </div>
+      <div style="background:var(--surface2);border-radius:4px;height:8px;overflow:hidden">
+        <div style="background:${color};height:100%;width:${total > 0 ? (valor / total * 100) : 0}%"></div>
+      </div>
+    </div>
+  `;
+
+  const m2OtrasU = kpis.totalM2 - kpis.m2Vendido - kpis.m2Canjeado - kpis.m2Disponible;
+
+  document.getElementById('stock-unidades').innerHTML = `
+    <div class="text-xs text-2 mb-2">Por cantidad — ${kpis.totalUnidades} unidades residenciales en total</div>
+    ${filaCant('Vendidas', kpis.vendidas, kpis.totalUnidades, 'var(--green)')}
+    ${filaCant('Canjeadas', kpis.canje, kpis.totalUnidades, 'var(--accent4)')}
+    ${filaCant('Disponibles', kpis.disponibles, kpis.totalUnidades, 'var(--accent)')}
+    ${(kpis.bloqueadas + kpis.reservadas) > 0 ? filaCant('Bloqueadas/Reservadas', kpis.bloqueadas + kpis.reservadas, kpis.totalUnidades, 'var(--red)') : ''}
+    <div class="text-xs text-2 mb-2 mt-4">Por m² — ${fmtNum(kpis.totalM2)} m² totales</div>
+    ${filaM2('Vendido', kpis.m2Vendido, kpis.totalM2, 'var(--green)')}
+    ${filaM2('Canjeado', kpis.m2Canjeado, kpis.totalM2, 'var(--accent4)')}
+    ${filaM2('Disponible', kpis.m2Disponible, kpis.totalM2, 'var(--accent)')}
+    ${m2OtrasU > 0.5 ? filaM2('Bloqueado/Reservado', m2OtrasU, kpis.totalM2, 'var(--red)') : ''}
+  `;
+
+  document.getElementById('stock-cocheras').innerHTML = `
+    <div class="text-xs text-2 mb-2">${kpis.cocherasTotal} cocheras + local en total</div>
+    ${filaCant('Vendidas', kpis.cocherasVendidas, kpis.cocherasTotal, 'var(--green)')}
+    ${filaCant('Canjeadas', kpis.cocherasCanje, kpis.cocherasTotal, 'var(--accent4)')}
+    ${kpis.cocherasOpcion > 0 ? filaCant('Opción de compra', kpis.cocherasOpcion, kpis.cocherasTotal, '#a78bfa') : ''}
+    ${filaCant('Disponibles / en venta', kpis.cocherasEnVenta, kpis.cocherasTotal, 'var(--accent)')}
+  `;
+}
+
+function renderVentasChart(kpis) {
+  const tipos = {};
+  state.ventas.forEach(v => {
+    const u = state.unidades.find(x => x.id === v.unidadId);
+    if (!u) return;
+    if (!tipos[u.tipo]) tipos[u.tipo] = { vendidas: 0, total: 0 };
+    tipos[u.tipo].vendidas++;
+  });
+  state.unidades.forEach(u => {
+    if (!tipos[u.tipo]) tipos[u.tipo] = { vendidas: 0, total: 0 };
+    tipos[u.tipo].total++;
+  });
+
+  const colors = { 'Local': '#06b6d4', '1 amb': '#00d4aa', '2 amb': '#ffd93d', '3 amb': '#ff6b6b', '4 amb': '#a78bfa' };
+
+  document.getElementById('ventas-chart').innerHTML = Object.entries(tipos).map(([tipo, data]) => {
+    const pct = data.total > 0 ? (data.vendidas / data.total * 100) : 0;
+    const color = colors[tipo] || '#9096b0';
+    return `
+      <div style="margin-bottom:12px">
+        <div class="flex justify-between items-center mb-1">
+          <span class="text-sm">${tipo}</span>
+          <span class="text-xs text-2">${data.vendidas}/${data.total} (${fmtPct(pct)})</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="background:${color};width:${pct}%"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ============================================================
+// PROYECTO
+// ============================================================
+function renderProyecto() {
+  const p = state.proyecto;
+  document.getElementById('proy-nombre').value = p.nombre || '';
+  document.getElementById('proy-ubicacion').value = p.ubicacion || '';
+  document.getElementById('proy-inicio').value = p.inicio || '';
+  document.getElementById('proy-fin').value = p.fin || '';
+  document.getElementById('proy-presupuesto').value = p.presupuesto || '';
+  document.getElementById('proy-moneda').value = p.moneda || 'USD';
+  renderUnidades();
+}
+
+function saveProyecto() {
+  state.proyecto = {
+    ...state.proyecto,
+    nombre: document.getElementById('proy-nombre').value,
+    ubicacion: document.getElementById('proy-ubicacion').value,
+    inicio: document.getElementById('proy-inicio').value,
+    fin: document.getElementById('proy-fin').value,
+    presupuesto: parseFloat(document.getElementById('proy-presupuesto').value) || 0,
+    moneda: document.getElementById('proy-moneda').value,
+  };
+  saveState();
+  document.getElementById('project-name-sidebar').textContent = state.proyecto.nombre || 'Sin proyecto';
+}
+
+const estadoComercialLabels = {
+  disponible: 'Disponible', vendido: 'Vendido', canje_tierra: 'Canje tierra',
+  canje_honorarios: 'Canje honorarios', canje_obra: 'Canje obra',
+  bloqueado: 'Bloqueado', reservado: 'Reservado',
+};
+const estadoComercialBadges = {
+  disponible: 'badge-gray', vendido: 'badge-green', canje_tierra: 'badge-blue',
+  canje_honorarios: 'badge-blue', canje_obra: 'badge-blue',
+  bloqueado: 'badge-red', reservado: 'badge-yellow',
+};
+
+function renderUnidades() {
+  const tbody = document.getElementById('tabla-unidades');
+  const q = (document.getElementById('unidades-buscar')?.value || '').toLowerCase().trim();
+  const filtradas = !q ? state.unidades : state.unidades.filter(u => {
+    const estado = estadoComercialLabels[u.estadoComercial] || u.estadoComercial || '';
+    return [u.numero, u.tipo, u.piso, u.cliente, estado].join(' ').toLowerCase().includes(q);
+  });
+
+  tbody.innerHTML = filtradas.map(u => {
+    const estado = u.estadoComercial || 'disponible';
+    const preciom2 = u.m2Total > 0 ? u.precio / u.m2Total : 0;
+    return `
+      <tr>
+        <td class="font-bold">${u.numero}</td>
+        <td>${u.tipo}</td>
+        <td>${u.m2Total} m²</td>
+        <td>${u.m2Cubierto} m²</td>
+        <td>${u.piso}</td>
+        <td class="font-bold">${fmt(u.precio)}</td>
+        <td>${fmt(preciom2)}/m²</td>
+        <td><span class="badge ${estadoComercialBadges[estado]}">${estadoComercialLabels[estado] || estado}</span>${u.cliente ? `<div class="text-xs text-2">${u.cliente}</div>` : ''}</td>
+        <td>
+          <button class="btn btn-secondary btn-sm" onclick="editUnidad('${u.id}')">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteUnidad('${u.id}')">🗑</button>
+        </td>
+      </tr>
+    `;
+  }).join('') || '<tr><td colspan="9" class="text-2 text-sm" style="text-align:center;padding:20px">Sin resultados para esa búsqueda</td></tr>';
+
+  const m2TotalFiltrado = filtradas.reduce((s, u) => s + (u.m2Total || 0), 0);
+  const m2CubFiltrado = filtradas.reduce((s, u) => s + (u.m2Cubierto || 0), 0);
+  const precioFiltrado = filtradas.reduce((s, u) => s + (u.precio || 0), 0);
+  const preciom2Prom = m2TotalFiltrado > 0 ? precioFiltrado / m2TotalFiltrado : 0;
+  document.getElementById('tfoot-unidades').innerHTML = `
+    <tr>
+      <td class="font-bold">TOTAL (${filtradas.length})</td>
+      <td></td>
+      <td class="font-bold">${fmtNum(m2TotalFiltrado)} m²</td>
+      <td class="font-bold">${fmtNum(m2CubFiltrado)} m²</td>
+      <td></td>
+      <td class="font-bold">${fmt(precioFiltrado)}</td>
+      <td class="font-bold">${fmt(preciom2Prom)}/m²</td>
+      <td colspan="2"></td>
+    </tr>
+  `;
+
+  const total = state.unidades.length;
+  const m2Total = state.unidades.reduce((s, u) => s + (u.m2Total || 0), 0);
+  const listaTotal = state.unidades.reduce((s, u) => s + (u.precio || 0), 0);
+  document.getElementById('unidades-resumen').innerHTML = `
+    <span><b>${total}</b> unidades${q ? ` (${filtradas.length} filtradas)` : ''}</span>
+    <span>·</span>
+    <span><b>${fmtNum(m2Total)}</b> m² totales</span>
+    <span>·</span>
+    <span>Lista total: <b>${fmt(listaTotal)}</b></span>
+  `;
+}
+
+function saveUnidad() {
+  const id = document.getElementById('unidad-edit-id').value;
+  const numero = document.getElementById('u-numero').value.trim();
+  if (!numero) { alert('La unidad necesita un número/código.'); return; }
+  const existing = id ? state.unidades.find(x => x.id === id) : null;
+  const u = existing ? { ...existing } : { id: uid(), m2Semi: 0 };
+  u.numero = numero;
+  u.tipo = document.getElementById('u-tipo').value;
+  u.m2Total = parseFloat(document.getElementById('u-m2-total').value) || 0;
+  u.m2Cubierto = parseFloat(document.getElementById('u-m2-cubierto').value) || 0;
+  u.m2Semi = parseFloat(document.getElementById('u-m2-semi').value) || 0;
+  u.piso = document.getElementById('u-piso').value;
+  u.orientacion = document.getElementById('u-orientacion').value;
+  u.precio = parseFloat(document.getElementById('u-precio').value) || 0;
+  u.estadoComercial = document.getElementById('u-estado').value;
+  u.cliente = document.getElementById('u-cliente').value.trim();
+  u.precioM2Lista = u.m2Total > 0 ? u.precio / u.m2Total : (u.precioM2Lista || 0);
+  const idx = state.unidades.findIndex(x => x.id === u.id);
+  if (idx >= 0) state.unidades[idx] = u; else state.unidades.push(u);
+  saveState(); closeModal('modal-unidad'); renderUnidades();
+  renderDashboard();
+}
+
+function editUnidad(id) {
+  const u = state.unidades.find(x => x.id === id);
+  if (!u) return;
+  document.getElementById('unidad-edit-id').value = u.id;
+  document.getElementById('u-numero').value = u.numero;
+  document.getElementById('u-tipo').value = u.tipo;
+  document.getElementById('u-estado').value = u.estadoComercial || 'disponible';
+  document.getElementById('u-cliente').value = u.cliente || '';
+  document.getElementById('u-m2-total').value = u.m2Total;
+  document.getElementById('u-m2-cubierto').value = u.m2Cubierto;
+  document.getElementById('u-m2-semi').value = u.m2Semi || 0;
+  document.getElementById('u-piso').value = u.piso;
+  document.getElementById('u-orientacion').value = u.orientacion || '';
+  document.getElementById('u-precio').value = u.precio;
+  document.getElementById('modal-unidad-title').textContent = `Editar Unidad ${u.numero}`;
+  openModal('modal-unidad');
+}
+
+function deleteUnidad(id) {
+  if (!confirm('¿Eliminar unidad?')) return;
+  state.unidades = state.unidades.filter(x => x.id !== id);
+  saveState(); renderUnidades();
+}
+
+// ============================================================
+// VENTAS
+// ============================================================
+let ventasTab = 'todas';
+function setVentasTab(tab, el) {
+  ventasTab = tab;
+  document.querySelectorAll('#page-ventas .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderVentas();
+}
+
+function renderVentas() {
+  const kpis = calcKPIs();
+  document.getElementById('ventas-kpis').innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Precio Vendido Prom/m²</div>
+      <div class="kpi-value text-accent">${fmt(kpis.precioPromedioVendido)}</div>
+      <div class="kpi-sub">${kpis.vendidas} unidades vendidas</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Precio Lista Prom/m² (Disponible)</div>
+      <div class="kpi-value" style="color:var(--accent2)">${fmt(kpis.precioPromedioLista)}</div>
+      <div class="kpi-sub">${kpis.disponibles} unidades disponibles</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Escrituras</div>
+      <div class="kpi-value text-green">${kpis.escrituras}</div>
+      <div class="kpi-sub">${fmt(state.ventas.filter(v=>v.estado==='escritura').reduce((s,v)=>s+v.precio,0))}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Boletos</div>
+      <div class="kpi-value text-accent">${kpis.boletos}</div>
+      <div class="kpi-sub">${fmt(state.ventas.filter(v=>v.estado==='boleto').reduce((s,v)=>s+v.precio,0))}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Reservas</div>
+      <div class="kpi-value text-yellow">${kpis.reservas}</div>
+      <div class="kpi-sub">${fmt(state.ventas.filter(v=>v.estado==='reserva').reduce((s,v)=>s+v.precio,0))}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Descuento Promedio</div>
+      <div class="kpi-value">${calcDescuentoPromedio()}%</div>
+      <div class="kpi-sub">vs precio lista</div>
+    </div>
+  `;
+
+  let rows = [];
+  let totalPrecio = 0, totalSaldo = 0, cantFilas = 0;
+
+  const ventasConUnidad = state.ventas.map(getVentaData).filter(v => v.unidad);
+
+  if (ventasTab === 'disponible') {
+    const disponibles = state.unidades.filter(u => u.estadoComercial === 'disponible');
+    totalPrecio = disponibles.reduce((s, u) => s + (u.precio || 0), 0);
+    totalSaldo = totalPrecio;
+    cantFilas = disponibles.length;
+    rows = disponibles.map(u => `
+      <tr>
+        <td class="font-bold">${u.numero} (${u.tipo})</td>
+        <td class="text-2">—</td>
+        <td><span class="badge badge-gray">Disponible</span></td>
+        <td>${fmt(u.precio)}</td>
+        <td>${fmt(u.m2Total > 0 ? u.precio / u.m2Total : 0)}/m²</td>
+        <td>—</td><td>—</td><td>${fmt(u.precio)}</td>
+        <td>
+          <button class="btn btn-primary btn-sm" onclick="openVentaForUnidad('${u.id}')">Vender</button>
+        </td>
+      </tr>
+    `);
+  } else {
+    const filtered = ventasTab === 'todas' ? ventasConUnidad : ventasConUnidad.filter(v => v.estado === ventasTab);
+    cantFilas = filtered.length;
+    rows = filtered.map(v => {
+      const m2 = v.unidad?.m2Total || 0;
+      const preciom2 = m2 > 0 ? v.precio / m2 : 0;
+      const cuotaValor = v.cuotas > 0 ? (v.precio - v.sena) / v.cuotas : 0;
+      const cobrado = v.sena + cuotaValor * (v.cuotasCobradas || 0);
+      const saldo = v.precio - cobrado;
+      totalPrecio += v.precio || 0;
+      totalSaldo += saldo;
+      const badges = { reserva: 'badge-yellow', boleto: 'badge-blue', escritura: 'badge-green' };
+      return `
+        <tr>
+          <td class="font-bold">${v.unidad?.numero} (${v.unidad?.tipo})</td>
+          <td>${v.comprador}</td>
+          <td><span class="badge ${badges[v.estado]}">${v.estado}</span></td>
+          <td class="font-bold">${fmt(v.precio)}</td>
+          <td>${fmt(preciom2)}/m²</td>
+          <td>${v.fecha}</td>
+          <td>${v.cuotasCobradas || 0}/${v.cuotas || 0}${cuotaValor > 0 ? `<div class="text-xs text-2">${fmt(cuotaValor)}/cuota</div>` : ''}</td>
+          <td class="${saldo > 0 ? 'text-yellow' : 'text-green'}">${fmt(saldo)}</td>
+          <td style="white-space:nowrap">
+            ${v.cuotas > 0 && (v.cuotasCobradas || 0) < v.cuotas ? `<button class="btn btn-success btn-sm" onclick="registrarCobroCuota('${v.id}')" title="Registrar cobro de 1 cuota">+ Cuota</button>` : ''}
+            <button class="btn btn-secondary btn-sm" onclick="editVenta('${v.id}')">✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteVenta('${v.id}')">🗑</button>
+          </td>
+        </tr>
+      `;
+    });
+  }
+  document.getElementById('tabla-ventas').innerHTML = rows.join('') || '<tr><td colspan="9" class="text-2 text-sm" style="text-align:center;padding:20px">Sin registros</td></tr>';
+  document.getElementById('tfoot-ventas').innerHTML = cantFilas === 0 ? '' : `
+    <tr>
+      <td class="font-bold">TOTAL (${cantFilas})</td>
+      <td colspan="2"></td>
+      <td class="font-bold">${fmt(totalPrecio)}</td>
+      <td colspan="2"></td>
+      <td></td>
+      <td class="font-bold">${fmt(totalSaldo)}</td>
+      <td></td>
+    </tr>
+  `;
+
+  renderCanjes();
+  renderCocheras();
+}
+
+function renderCanjes() {
+  const canjeLabels = { canje_tierra: 'Canje tierra', canje_honorarios: 'Canje honorarios', canje_obra: 'Canje obra' };
+  const canjes = state.unidades.filter(u => (u.estadoComercial || '').startsWith('canje_'));
+  document.getElementById('tabla-canjes').innerHTML = canjes.map(u => `
+    <tr>
+      <td class="font-bold">${u.numero} (${u.tipo})</td>
+      <td><span class="badge badge-blue">${canjeLabels[u.estadoComercial] || u.estadoComercial}</span></td>
+      <td>${u.cliente || '—'}</td>
+      <td>${fmt(u.precio)}</td>
+      <td>${u.fechaOperacion || '—'}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="5" class="text-2 text-sm" style="text-align:center;padding:20px">Sin canjes</td></tr>';
+  const totalCanje = canjes.reduce((s, u) => s + (u.precio || 0), 0);
+  document.getElementById('tfoot-canjes').innerHTML = canjes.length === 0 ? '' : `
+    <tr><td class="font-bold">TOTAL (${canjes.length})</td><td colspan="2"></td><td class="font-bold">${fmt(totalCanje)}</td><td></td></tr>
+  `;
+}
+
+function renderCocheras() {
+  const estadoLabels = { en_venta: 'En venta', vendida: 'Vendida', opcion_compra: 'Opción de compra', canje_honorarios: 'Canje honorarios', disponible: 'Disponible' };
+  const estadoBadges = { en_venta: 'badge-gray', vendida: 'badge-green', opcion_compra: 'badge-yellow', canje_honorarios: 'badge-blue', disponible: 'badge-gray' };
+  const total = state.cocheras.length;
+  const vendidas = state.cocheras.filter(c => c.estado === 'vendida').length;
+  const ingresoVendidas = state.cocheras.filter(c => c.estado === 'vendida').reduce((s, c) => s + c.precio, 0);
+  document.getElementById('cocheras-resumen').textContent = `${vendidas}/${total} vendidas · ${fmt(ingresoVendidas)} cobrado`;
+  document.getElementById('tabla-cocheras').innerHTML = state.cocheras.map(c => `
+    <tr>
+      <td class="font-bold">${c.numero}</td>
+      <td>${c.piso}</td>
+      <td><span class="badge ${estadoBadges[c.estado] || 'badge-gray'}">${estadoLabels[c.estado] || c.estado}</span></td>
+      <td>${fmt(c.precio)}</td>
+      <td>${c.cliente || '—'}</td>
+      <td class="text-xs text-yellow">${c.notas || ''}</td>
+    </tr>
+  `).join('');
+  const totalPrecio = state.cocheras.reduce((s, c) => s + (c.precio || 0), 0);
+  document.getElementById('tfoot-cocheras').innerHTML = `
+    <tr><td class="font-bold">TOTAL (${total})</td><td></td><td></td><td class="font-bold">${fmt(totalPrecio)}</td><td colspan="2"></td></tr>
+  `;
+}
+
+function calcDescuentoPromedio() {
+  const ventas = state.ventas.map(getVentaData).filter(v => v.unidad && v.unidad.precioM2Lista > 0);
+  if (ventas.length === 0) return '0.0';
+  const descs = ventas.map(v => {
+    const precioLista = v.unidad.precioM2Lista * v.unidad.m2Total;
+    return (1 - v.precio / precioLista) * 100;
+  });
+  return (descs.reduce((s, d) => s + d, 0) / descs.length).toFixed(1);
+}
+
+// ============================================================
+// CLIENTES (cuenta corriente por comprador)
+// ============================================================
+function nombresSimilares(a, b) {
+  if (!a || !b) return false;
+  // Compara por apellido (última palabra), no por cualquier palabra en común —
+  // comparar nombres de pila (ej. "Diego") generaba falsos positivos entre
+  // personas distintas que comparten nombre (Diego Abramzon ≠ Diego Gamero).
+  const apellidoA = a.toLowerCase().trim().split(/\s+/).pop();
+  const apellidoB = b.toLowerCase().trim().split(/\s+/).pop();
+  return apellidoA.length > 2 && apellidoA === apellidoB;
+}
+
+function buildClientesData() {
+  // Agrupa por comprador (fuente de verdad: state.ventas, que tiene el plan de pagos real).
+  const ventasConUnidad = state.ventas.map(getVentaData).filter(v => v.unidad && v.comprador);
+  const nombres = [...new Set(ventasConUnidad.map(v => v.comprador))];
+
+  const clientes = nombres.map(nombre => {
+    const ventas = ventasConUnidad.filter(v => v.comprador === nombre);
+    const cocherasCliente = state.cocheras.filter(c => c.cliente && nombresSimilares(c.cliente, nombre));
+
+    const detalleVentas = ventas.map(v => {
+      const cuotaValor = v.cuotas > 0 ? (v.precio - (v.sena || 0)) / v.cuotas : 0;
+      const cuotasCobradas = v.cuotasCobradas || 0;
+      const cobrado = (v.sena || 0) + cuotaValor * cuotasCobradas;
+      const saldo = v.precio - cobrado;
+      const preciom2 = v.unidad.m2Total > 0 ? v.precio / v.unidad.m2Total : 0;
+      return { ...v, cuotaValor, cobrado, saldo, preciom2 };
+    });
+
+    const totalVendido = detalleVentas.reduce((s, v) => s + v.precio, 0) + cocherasCliente.reduce((s, c) => s + (c.precio || 0), 0);
+    const totalCobrado = detalleVentas.reduce((s, v) => s + v.cobrado, 0) + cocherasCliente.reduce((s, c) => s + (c.precio || 0), 0); // cocheras: se asume cobrado=precio (no tienen plan de pagos propio)
+    const saldoPendiente = totalVendido - totalCobrado;
+    const m2Total = detalleVentas.reduce((s, v) => s + (v.unidad.m2Total || 0), 0);
+    const precioPromM2 = m2Total > 0 ? detalleVentas.reduce((s, v) => s + v.precio, 0) / m2Total : 0;
+
+    return { nombre, ventas: detalleVentas, cocheras: cocherasCliente, totalVendido, totalCobrado, saldoPendiente, m2Total, precioPromM2 };
+  });
+
+  clientes.sort((a, b) => b.totalVendido - a.totalVendido);
+  return clientes;
+}
+
+function renderClientes() {
+  const q = (document.getElementById('clientes-buscar')?.value || '').toLowerCase().trim();
+  const todos = buildClientesData();
+  const clientes = q ? todos.filter(c => c.nombre.toLowerCase().includes(q)) : todos;
+
+  // KPIs generales (siempre sobre el total real, no sobre lo filtrado por la búsqueda)
+  const totalVendidoBase = todos.reduce((s, c) => s + c.totalVendido, 0);
+  const totalCobradoBase = todos.reduce((s, c) => s + c.totalCobrado, 0);
+  document.getElementById('clientes-kpis').innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Clientes</div>
+      <div class="kpi-value">${todos.length}</div>
+      <div class="kpi-sub">con al menos una unidad vendida</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Total Vendido</div>
+      <div class="kpi-value text-accent">${fmt(totalVendidoBase)}</div>
+      <div class="kpi-sub">unidades + cocheras</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Total Cobrado</div>
+      <div class="kpi-value text-green">${fmt(totalCobradoBase)}</div>
+      <div class="kpi-sub">${fmtPct(totalVendidoBase > 0 ? totalCobradoBase/totalVendidoBase*100 : 0)} del total</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Saldo Pendiente de Cobro</div>
+      <div class="kpi-value text-yellow">${fmt(totalVendidoBase - totalCobradoBase)}</div>
+      <div class="kpi-sub">entre todos los clientes</div>
+    </div>
+  `;
+
+  // Tabla compacta — click en la fila abre el detalle completo en un modal.
+  document.getElementById('tabla-clientes').innerHTML = clientes.map(c => {
+    const unidadesTxt = c.ventas.map(v => v.unidad.numero).join(', ') + (c.cocheras.length > 0 ? ` + ${c.cocheras.length} coch.` : '');
+    return `
+      <tr style="cursor:pointer" onclick="abrirDetalleCliente('${c.nombre.replace(/'/g, "\\'")}')">
+        <td class="font-bold">${c.nombre}</td>
+        <td class="text-2">${unidadesTxt}</td>
+        <td>${fmtNum(c.m2Total)} m²</td>
+        <td>${fmt(c.precioPromM2)}/m²</td>
+        <td class="font-bold">${fmt(c.totalVendido)}</td>
+        <td class="text-green">${fmt(c.totalCobrado)}</td>
+        <td class="font-bold ${c.saldoPendiente > 0 ? 'text-yellow' : 'text-green'}">${fmt(c.saldoPendiente)}</td>
+        <td><button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); abrirDetalleCliente('${c.nombre.replace(/'/g, "\\'")}')">🔍 Ver</button></td>
+      </tr>
+    `;
+  }).join('') || '<tr><td colspan="8" class="text-2 text-sm" style="text-align:center;padding:20px">Sin clientes que coincidan con la búsqueda</td></tr>';
+
+  document.getElementById('tfoot-clientes').innerHTML = clientes.length === 0 ? '' : `
+    <tr>
+      <td class="font-bold">TOTAL (${clientes.length})</td>
+      <td colspan="3"></td>
+      <td class="font-bold">${fmt(clientes.reduce((s,c)=>s+c.totalVendido,0))}</td>
+      <td class="font-bold text-green">${fmt(clientes.reduce((s,c)=>s+c.totalCobrado,0))}</td>
+      <td class="font-bold text-yellow">${fmt(clientes.reduce((s,c)=>s+c.saldoPendiente,0))}</td>
+      <td></td>
+    </tr>
+  `;
+}
+
+function abrirDetalleCliente(nombre) {
+  const c = buildClientesData().find(x => x.nombre === nombre);
+  if (!c) return;
+
+  document.getElementById('modal-cliente-titulo').textContent = c.nombre;
+  document.getElementById('modal-cliente-resumen').innerHTML = `
+    <div class="flex gap-4 text-sm text-2">
+      <span>${c.ventas.length} unidad${c.ventas.length !== 1 ? 'es' : ''}${c.cocheras.length > 0 ? ` · ${c.cocheras.length} cochera${c.cocheras.length !== 1 ? 's' : ''}` : ''}</span>
+      <span>·</span>
+      <span>${fmtNum(c.m2Total)} m²</span>
+      <span>·</span>
+      <span>${fmt(c.precioPromM2)}/m² promedio</span>
+    </div>
+  `;
+
+  document.getElementById('modal-cliente-detalle-container').innerHTML = `
+    <div class="table-wrap mb-3">
+      <table>
+        <thead><tr><th>Unidad</th><th>m²</th><th>Precio Total</th><th>$/m²</th><th>Estado</th><th>Seña</th><th>Cuotas</th><th>Cobrado</th><th>Saldo</th></tr></thead>
+        <tbody>
+          ${c.ventas.map(v => `
+            <tr>
+              <td class="font-bold">${v.unidad.numero} (${v.unidad.tipo})</td>
+              <td>${fmtNum(v.unidad.m2Total)} m²</td>
+              <td class="font-bold">${fmt(v.precio)}</td>
+              <td>${fmt(v.preciom2)}/m²</td>
+              <td><span class="badge badge-blue">${v.estado}</span></td>
+              <td>${fmt(v.sena)}</td>
+              <td>${v.cuotasCobradas || 0}/${v.cuotas || 0} <span class="text-xs text-2">(${fmt(v.cuotaValor)}/cuota)</span></td>
+              <td class="text-green">${fmt(v.cobrado)}</td>
+              <td class="${v.saldo > 0 ? 'text-yellow' : 'text-green'} font-bold">${fmt(v.saldo)}</td>
+            </tr>
+          `).join('')}
+          ${c.cocheras.map(co => `
+            <tr>
+              <td class="font-bold">Cochera ${co.numero}</td>
+              <td>—</td>
+              <td class="font-bold">${fmt(co.precio)}</td>
+              <td>—</td>
+              <td><span class="badge badge-gray">cochera</span></td>
+              <td colspan="2" class="text-2 text-xs">sin plan de cuotas (pago directo)</td>
+              <td class="text-green">${fmt(co.precio)}</td>
+              <td class="text-green font-bold">${fmt(0)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2" class="font-bold">TOTAL</td>
+            <td class="font-bold">${fmt(c.totalVendido)}</td>
+            <td colspan="3"></td>
+            <td class="font-bold text-green">${fmt(c.totalCobrado)}</td>
+            <td class="font-bold ${c.saldoPendiente > 0 ? 'text-yellow' : 'text-green'}">${fmt(c.saldoPendiente)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  `;
+
+  openModal('modal-cliente-detalle');
+}
+
+function openVentaForUnidad(unidadId) {
+  nuevoRegistro('modal-venta');
+  document.getElementById('v-unidad').value = unidadId;
+  syncPrecioFromUnidad();
+}
+
+// Autocompleta el precio de venta con el precio de lista de la unidad elegida,
+// solo si el campo está vacío (no pisa un precio cerrado que el usuario ya escribió).
+function syncPrecioFromUnidad() {
+  const sel = document.getElementById('v-unidad');
+  const u = state.unidades.find(x => x.id === sel.value);
+  const precioInput = document.getElementById('v-precio');
+  if (u && (!precioInput.value || parseFloat(precioInput.value) === 0)) {
+    precioInput.value = u.precio || '';
+  }
+}
+
+// openModal: SOLO abre el modal. No toca campos ni selects — eso lo hacen las funciones
+// de alta (nuevoRegistro) o edición (editX), que preparan el formulario antes de abrir.
+// Antes openModal hacía doble trabajo y pisaba los datos que editX seteaba: por eso al
+// editar una venta se generaba un alta nueva (id reseteado + select de unidades disponibles).
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+
+// nuevoRegistro: prepara un formulario en blanco para dar de alta y abre el modal.
+// Lo llaman los botones "+ Agregar / + Nuevo / + Registrar".
+function nuevoRegistro(id) {
+  const hoy = new Date().toISOString().split('T')[0];
+  if (id === 'modal-venta') {
+    document.getElementById('venta-edit-id').value = '';
+    document.getElementById('modal-venta-title').textContent = 'Registrar Venta';
+    const sel = document.getElementById('v-unidad');
+    const disp = state.unidades.filter(u => u.estadoComercial === 'disponible');
+    sel.innerHTML = disp.map(u => `<option value="${u.id}">${u.numero} — ${u.tipo} (${u.m2Total}m²) — ${fmt(u.precio)}</option>`).join('')
+      || '<option value="">No hay unidades disponibles</option>';
+    ['v-comprador','v-dni','v-sena','v-cuotas','v-cuotas-cobradas','v-notas'].forEach(f => document.getElementById(f).value = '');
+    document.getElementById('v-estado').value = 'boleto';
+    document.getElementById('v-fecha').value = hoy;
+    syncPrecioFromUnidad();
+  }
+  if (id === 'modal-unidad') {
+    document.getElementById('unidad-edit-id').value = '';
+    document.getElementById('modal-unidad-title').textContent = 'Nueva Unidad';
+    ['u-numero','u-m2-total','u-m2-cubierto','u-m2-semi','u-piso','u-precio'].forEach(f => document.getElementById(f).value = '');
+    document.getElementById('u-tipo').value = '2 amb';
+    document.getElementById('u-estado').value = 'disponible';
+  }
+  if (id === 'modal-subcontrato') {
+    document.getElementById('sub-edit-id').value = '';
+    document.getElementById('modal-subcontrato-title').textContent = 'Nuevo Subcontrato';
+    ['sub-nombre','sub-contratista','sub-monto','sub-inicio','sub-fin','sub-avance-est','sub-notas'].forEach(f => document.getElementById(f).value = '');
+    document.getElementById('sub-rubro').value = 'estructura';
+  }
+  if (id === 'modal-certificacion') {
+    document.getElementById('cert-subcontrato').innerHTML = state.subcontratos.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
+    document.getElementById('cert-fecha').value = hoy;
+    ['cert-monto','cert-avance','cert-avance-global','cert-desc'].forEach(f => document.getElementById(f).value = '');
+  }
+  if (id === 'modal-hito') {
+    ['hito-nombre','hito-fecha-est','hito-fecha-real','hito-pct'].forEach(f => document.getElementById(f).value = '');
+  }
+  if (id === 'modal-movimiento') {
+    document.getElementById('mov-fecha').value = hoy;
+    ['mov-monto','mov-concepto'].forEach(f => document.getElementById(f).value = '');
+    document.getElementById('mov-tipo').onchange = function() {
+      document.getElementById('mov-caja-dest-group').style.display = this.value === 'transferencia' ? 'block' : 'none';
+    };
+    document.getElementById('mov-caja-dest-group').style.display = 'none';
+    updateMovMonedaLabel();
+  }
+  if (id === 'modal-costo-cerrado') {
+    document.getElementById('evc-edit-id').value = '';
+    document.getElementById('evc-tipo').value = 'blando';
+    updateEvcRubroSelect();
+    document.getElementById('evc-monto').value = '';
+    document.getElementById('evc-fecha').value = hoy;
+    document.getElementById('evc-notas').value = '';
+  }
+  if (id === 'modal-costo-blando') {
+    document.getElementById('cb-edit-id').value = '';
+    document.getElementById('modal-costo-blando-title').textContent = 'Nuevo Costo Blando';
+    ['cb-rubro','cb-total','cb-pagado'].forEach(f => document.getElementById(f).value = '');
+    document.getElementById('cb-categoria').value = 'd) Blandos';
+  }
+  openModal(id);
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.addEventListener('click', e => { if (e.target.classList.contains('modal-overlay')) closeModal(e.target.id); });
+
+function saveVenta() {
+  const editId = document.getElementById('venta-edit-id').value;
+  const unidadId = document.getElementById('v-unidad').value;
+  if (!unidadId) { alert('Elegí una unidad.'); return; }
+  const comprador = document.getElementById('v-comprador').value.trim();
+  if (!comprador) { alert('Ingresá el nombre del comprador.'); return; }
+
+  const v = {
+    id: editId || uid(),
+    unidadId,
+    comprador,
+    dni: document.getElementById('v-dni').value,
+    estado: document.getElementById('v-estado').value,
+    precio: parseFloat(document.getElementById('v-precio').value) || 0,
+    fecha: document.getElementById('v-fecha').value,
+    sena: parseFloat(document.getElementById('v-sena').value) || 0,
+    cuotas: parseInt(document.getElementById('v-cuotas').value) || 0,
+    cuotasCobradas: parseInt(document.getElementById('v-cuotas-cobradas').value) || 0,
+    notas: document.getElementById('v-notas').value,
+  };
+
+  // Validación: no permitir cobrar más cuotas de las que existen.
+  if (v.cuotas > 0 && v.cuotasCobradas > v.cuotas) {
+    alert(`No podés marcar ${v.cuotasCobradas} cuotas cobradas si el plan es de ${v.cuotas} cuotas.`);
+    return;
+  }
+
+  const existing = editId ? state.ventas.find(x => x.id === editId) : null;
+
+  // Si al editar se cambia la unidad asignada, libera la anterior.
+  if (existing && existing.unidadId !== v.unidadId) {
+    const unidadAnterior = state.unidades.find(u => u.id === existing.unidadId);
+    if (unidadAnterior) { unidadAnterior.estadoComercial = 'disponible'; unidadAnterior.cliente = ''; unidadAnterior.fechaOperacion = ''; }
+  }
+  // Al dar de alta (no edición), bloquear si la unidad ya tiene otra venta asociada.
+  if (!existing) {
+    const yaVendida = state.ventas.find(x => x.unidadId === v.unidadId);
+    if (yaVendida) {
+      if (!confirm(`Esa unidad ya tiene una venta registrada a nombre de ${yaVendida.comprador}. ¿Querés crear igual una segunda venta para la misma unidad?`)) return;
+    }
+  }
+
+  const idx = state.ventas.findIndex(x => x.id === v.id);
+  if (idx >= 0) state.ventas[idx] = v; else state.ventas.push(v);
+
+  const unidad = state.unidades.find(u => u.id === v.unidadId);
+  if (unidad) {
+    // Solo boleto/escritura cuentan como "vendido"; una reserva deja la unidad como "reservada".
+    unidad.estadoComercial = v.estado === 'reserva' ? 'reservado' : 'vendido';
+    unidad.precio = v.precio; unidad.cliente = v.comprador; unidad.fechaOperacion = v.fecha;
+  }
+  saveState(); closeModal('modal-venta'); renderVentas(); renderDashboard();
+}
+
+function editVenta(id) {
+  const v = state.ventas.find(x => x.id === id);
+  if (!v) return;
+  // El select incluye TODAS las unidades (no solo disponibles), porque la unidad de esta
+  // venta ya está marcada como vendida y no aparecería en la lista de disponibles.
+  const sel = document.getElementById('v-unidad');
+  sel.innerHTML = state.unidades.map(u => `<option value="${u.id}" ${u.id === v.unidadId ? 'selected' : ''}>${u.numero} — ${u.tipo} (${u.m2Total}m²)</option>`).join('');
+  document.getElementById('venta-edit-id').value = v.id;
+  document.getElementById('modal-venta-title').textContent = `Editar Venta — ${v.comprador}`;
+  document.getElementById('v-comprador').value = v.comprador || '';
+  document.getElementById('v-dni').value = v.dni || '';
+  document.getElementById('v-estado').value = v.estado || 'boleto';
+  document.getElementById('v-precio').value = v.precio || 0;
+  document.getElementById('v-fecha').value = v.fecha || '';
+  document.getElementById('v-sena').value = v.sena || 0;
+  document.getElementById('v-cuotas').value = v.cuotas || 0;
+  document.getElementById('v-cuotas-cobradas').value = v.cuotasCobradas || 0;
+  document.getElementById('v-notas').value = v.notas || '';
+  openModal('modal-venta');
+}
+
+function deleteVenta(id) {
+  if (!confirm('¿Eliminar venta?')) return;
+  const v = state.ventas.find(x => x.id === id);
+  state.ventas = state.ventas.filter(x => x.id !== id);
+  const unidad = v && state.unidades.find(u => u.id === v.unidadId);
+  // Limpia también el cliente/fecha pegados a la unidad — si no, queda "disponible" pero
+  // con el nombre del comprador anterior todavía visible en la tabla de Unidades.
+  if (unidad) { unidad.estadoComercial = 'disponible'; unidad.cliente = ''; unidad.fechaOperacion = ''; }
+  saveState(); renderVentas(); renderDashboard();
+}
+
+// Registra el cobro de UNA cuota de la venta (incrementa cuotasCobradas y deja registrado
+// el ingreso en la caja correspondiente). Atajo para no tener que abrir el modal de edición.
+function registrarCobroCuota(id) {
+  const v = state.ventas.find(x => x.id === id);
+  if (!v) return;
+  if ((v.cuotasCobradas || 0) >= (v.cuotas || 0)) { alert('Ya están cobradas todas las cuotas de esta venta.'); return; }
+  const cuotaValor = v.cuotas > 0 ? (v.precio - (v.sena || 0)) / v.cuotas : 0;
+  if (!confirm(`Registrar cobro de 1 cuota de ${v.comprador} por ${fmt(cuotaValor)} (cuota ${(v.cuotasCobradas || 0) + 1} de ${v.cuotas})?`)) return;
+  v.cuotasCobradas = (v.cuotasCobradas || 0) + 1;
+  // Deja constancia del cobro en la caja de cobros en USD (LMC).
+  state.movimientos.push({
+    id: uid(), caja: 'lmc', tipo: 'ingreso',
+    fecha: new Date().toISOString().split('T')[0],
+    monto: Math.round(cuotaValor),
+    concepto: `Cobro cuota ${v.cuotasCobradas}/${v.cuotas} — ${v.comprador}`
+  });
+  saveState(); renderVentas(); renderDashboard();
+}
+
+// ============================================================
+// SUBCONTRATOS
+// ============================================================
+function renderSubcontratos() {
+  const subs = state.subcontratos;
+  const totalMonto = subs.reduce((s, x) => s + (x.monto || 0), 0);
+  const totalPagado = subs.reduce((s, x) => s + (x.pagado || 0), 0);
+  const totalCertificado = subs.reduce((s, x) => {
+    const certs = state.certificaciones.filter(c => c.subcontratoId === x.id);
+    return s + certs.reduce((ss, c) => ss + (c.monto || 0), 0);
+  }, 0);
+
+  document.getElementById('subcontratos-kpis').innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Contratos Totales</div>
+      <div class="kpi-value">${subs.length}</div>
+      <div class="kpi-sub">${fmt(totalMonto)} comprometido</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Total Certificado</div>
+      <div class="kpi-value text-yellow">${fmt(totalCertificado)}</div>
+      <div class="kpi-sub">${fmtPct(totalMonto > 0 ? totalCertificado/totalMonto*100 : 0)} del total</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Total Pagado</div>
+      <div class="kpi-value text-green">${fmt(totalPagado)}</div>
+      <div class="kpi-sub">${fmt(totalCertificado - totalPagado)} certificado sin pagar</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Saldo por Pagar</div>
+      <div class="kpi-value text-red">${fmt(totalMonto - totalPagado)}</div>
+      <div class="kpi-sub">restante del contrato</div>
+    </div>
+  `;
+
+  document.getElementById('tabla-subcontratos').innerHTML = subs.map(s => {
+    const certs = state.certificaciones.filter(c => c.subcontratoId === s.id);
+    const certificado = certs.reduce((sum, c) => sum + (c.monto || 0), 0);
+    const pagado = s.pagado || 0;
+    const saldo = (s.monto || 0) - pagado;
+    const avancePct = s.monto > 0 ? (certificado / s.monto * 100) : 0;
+    const desvio = (s.avanceEst || 0) - (s.avanceReal || 0);
+    const multiProveedor = s.proveedores && s.proveedores.length > 0;
+    return `
+      <tr>
+        <td class="font-bold">${s.nombre}${multiProveedor ? `<div class="text-xs text-accent">🔀 ${s.proveedores.length} proveedores</div>` : ''}</td>
+        <td><span class="badge badge-gray">${s.rubro}</span></td>
+        <td>${multiProveedor ? `<span class="text-2 text-xs">${s.proveedores.map(p=>p.nombre).join(', ')}</span>` : s.contratista}</td>
+        <td>${fmt(s.monto)}</td>
+        <td>${fmt(certificado)}</td>
+        <td>${fmt(pagado)}</td>
+        <td class="${saldo > 0 ? 'text-yellow' : 'text-green'}">${fmt(saldo)}</td>
+        <td>
+          <div style="min-width:80px">
+            <div class="text-xs text-2 mb-1">${fmtPct(s.avanceReal || 0)} real / ${fmtPct(s.avanceEst || 0)} est.</div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="background:${desvio > 10 ? 'var(--red)' : desvio > 0 ? 'var(--yellow)' : 'var(--green)'};width:${Math.min(100,s.avanceReal||0)}%"></div>
+            </div>
+          </div>
+        </td>
+        <td>
+          <button class="btn btn-secondary btn-sm" onclick="editSubcontrato('${s.id}')">✏️</button>
+          <button class="btn btn-secondary btn-sm" onclick="openProveedores('${s.id}')" title="Desglosar por proveedor">👥</button>
+          ${multiProveedor ? '' : `<button class="btn btn-success btn-sm" onclick="registrarPago('${s.id}')">💰 Pago</button>`}
+          <button class="btn btn-danger btn-sm" onclick="deleteSubcontrato('${s.id}')">🗑</button>
+        </td>
+      </tr>
+    `;
+  }).join('') || '<tr><td colspan="9" class="text-2 text-sm" style="text-align:center;padding:20px">Sin subcontratos</td></tr>';
+
+  document.getElementById('tfoot-subcontratos').innerHTML = subs.length === 0 ? '' : `
+    <tr>
+      <td class="font-bold">TOTAL (${subs.length})</td>
+      <td colspan="2"></td>
+      <td class="font-bold">${fmt(totalMonto)}</td>
+      <td class="font-bold">${fmt(totalCertificado)}</td>
+      <td class="font-bold">${fmt(totalPagado)}</td>
+      <td class="font-bold ${(totalMonto - totalPagado) > 0 ? 'text-yellow' : 'text-green'}">${fmt(totalMonto - totalPagado)}</td>
+      <td colspan="2"></td>
+    </tr>
+  `;
+}
+
+function saveSubcontrato() {
+  const id = document.getElementById('sub-edit-id').value || uid();
+  const s = {
+    id,
+    nombre: document.getElementById('sub-nombre').value,
+    rubro: document.getElementById('sub-rubro').value,
+    contratista: document.getElementById('sub-contratista').value,
+    monto: parseFloat(document.getElementById('sub-monto').value) || 0,
+    inicio: document.getElementById('sub-inicio').value,
+    fin: document.getElementById('sub-fin').value,
+    avanceEst: parseFloat(document.getElementById('sub-avance-est').value) || 0,
+    avanceReal: 0,
+    pagado: 0,
+    notas: document.getElementById('sub-notas').value,
+  };
+  const existing = state.subcontratos.find(x => x.id === id);
+  if (existing) {
+    // Preserva campos que no están en el formulario (desglose por proveedor, presupuesto base, curva de avance).
+    s.avanceReal = existing.avanceReal; s.pagado = existing.pagado;
+    s.proveedores = existing.proveedores;
+    s.presupuestoBaseARS = existing.presupuestoBaseARS;
+    s.presupuestoActualizadoARS = existing.presupuestoActualizadoARS;
+    s.cronogramaProyectado = existing.cronogramaProyectado;
+    if (s.proveedores && s.proveedores.length > 0) recalcSubcontratoFromProveedores(s);
+  }
+  const idx = state.subcontratos.findIndex(x => x.id === id);
+  if (idx >= 0) state.subcontratos[idx] = s; else state.subcontratos.push(s);
+  saveState(); closeModal('modal-subcontrato'); renderSubcontratos();
+}
+
+function editSubcontrato(id) {
+  const s = state.subcontratos.find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('sub-edit-id').value = s.id;
+  document.getElementById('modal-subcontrato-title').textContent = `Editar Subcontrato — ${s.nombre}`;
+  document.getElementById('sub-nombre').value = s.nombre || '';
+  document.getElementById('sub-rubro').value = s.rubro || 'otro';
+  document.getElementById('sub-contratista').value = s.contratista || '';
+  document.getElementById('sub-monto').value = s.monto || 0;
+  document.getElementById('sub-inicio').value = s.inicio || '';
+  document.getElementById('sub-fin').value = s.fin || '';
+  document.getElementById('sub-avance-est').value = s.avanceEst || 0;
+  document.getElementById('sub-notas').value = s.notas || '';
+  openModal('modal-subcontrato');
+}
+
+function registrarPago(id) {
+  const montoUSD = prompt('Monto del pago en USD (el subcontrato está valuado en dólares):');
+  if (!montoUSD || isNaN(montoUSD)) return;
+  const s = state.subcontratos.find(x => x.id === id);
+  s.pagado = (s.pagado || 0) + parseFloat(montoUSD);
+  // Banco ARS está en pesos: convertimos USD → ARS con el TC del proyecto antes de cargar el movimiento
+  const tc = state.proyecto.tc || 1450;
+  const montoARS = Math.round(parseFloat(montoUSD) * tc);
+  state.movimientos.push({
+    id: uid(), caja: 'bancoArs', tipo: 'egreso',
+    fecha: new Date().toISOString().split('T')[0],
+    monto: montoARS, concepto: `Pago subcontrato: ${s.nombre} (USD ${montoUSD} × TC ${tc})`
+  });
+  saveState(); renderSubcontratos();
+}
+
+// ============================================================
+// DESGLOSE POR PROVEEDOR (rubros de obra con más de un contratista)
+// ============================================================
+function recalcSubcontratoFromProveedores(s) {
+  if (!s.proveedores || s.proveedores.length === 0) return;
+  s.monto = s.proveedores.reduce((sum, p) => sum + (p.monto || 0), 0);
+  s.pagado = s.proveedores.reduce((sum, p) => sum + (p.pagado || 0), 0);
+}
+
+function openProveedores(subId) {
+  document.getElementById('prov-sub-id').value = subId;
+  const s = state.subcontratos.find(x => x.id === subId);
+  document.getElementById('modal-proveedores-title').textContent = `Desglose por Proveedor — ${s.nombre}`;
+  ['prov-nombre','prov-monto','prov-pagado'].forEach(fid => document.getElementById(fid).value = '');
+  renderProveedoresModal();
+  openModal('modal-proveedores');
+}
+
+function renderProveedoresModal() {
+  const subId = document.getElementById('prov-sub-id').value;
+  const s = state.subcontratos.find(x => x.id === subId);
+  const proveedores = s.proveedores || [];
+  document.getElementById('tabla-proveedores').innerHTML = proveedores.map(p => {
+    const saldo = (p.monto || 0) - (p.pagado || 0);
+    return `
+      <tr>
+        <td class="font-bold">${p.nombre}</td>
+        <td>${fmt(p.monto)}</td>
+        <td class="text-green">${fmt(p.pagado)}</td>
+        <td class="${saldo > 0 ? 'text-yellow' : 'text-green'}">${fmt(saldo)}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="deleteProveedor('${p.id}')">🗑</button></td>
+      </tr>
+    `;
+  }).join('') || '<tr><td colspan="5" class="text-2 text-sm" style="text-align:center;padding:12px">Sin proveedores desglosados — el rubro usa un único contratista.</td></tr>';
+
+  const totalMonto = proveedores.reduce((sum, p) => sum + (p.monto || 0), 0);
+  const totalPagado = proveedores.reduce((sum, p) => sum + (p.pagado || 0), 0);
+  document.getElementById('tfoot-proveedores').innerHTML = proveedores.length > 0 ? `
+    <tr>
+      <td class="font-bold">Total rubro</td>
+      <td class="font-bold">${fmt(totalMonto)}</td>
+      <td class="font-bold">${fmt(totalPagado)}</td>
+      <td class="font-bold">${fmt(totalMonto - totalPagado)}</td>
+      <td></td>
+    </tr>
+  ` : '';
+}
+
+function addProveedor() {
+  const subId = document.getElementById('prov-sub-id').value;
+  const s = state.subcontratos.find(x => x.id === subId);
+  const nombre = document.getElementById('prov-nombre').value;
+  if (!nombre) { alert('Ingresá el nombre del proveedor.'); return; }
+  if (!s.proveedores) s.proveedores = [];
+  s.proveedores.push({
+    id: uid(), nombre,
+    monto: parseFloat(document.getElementById('prov-monto').value) || 0,
+    pagado: parseFloat(document.getElementById('prov-pagado').value) || 0,
+  });
+  recalcSubcontratoFromProveedores(s);
+  ['prov-nombre','prov-monto','prov-pagado'].forEach(fid => document.getElementById(fid).value = '');
+  saveState(); renderProveedoresModal(); renderSubcontratos();
+}
+
+function deleteProveedor(provId) {
+  const subId = document.getElementById('prov-sub-id').value;
+  const s = state.subcontratos.find(x => x.id === subId);
+  if (!confirm('¿Quitar este proveedor del desglose?')) return;
+  s.proveedores = (s.proveedores || []).filter(p => p.id !== provId);
+  if (s.proveedores.length === 0) {
+    // Sin proveedores, el monto/pagado vuelven a manejarse a mano sobre el rubro.
+  } else {
+    recalcSubcontratoFromProveedores(s);
+  }
+  saveState(); renderProveedoresModal(); renderSubcontratos();
+}
+
+function deleteSubcontrato(id) {
+  if (!confirm('¿Eliminar subcontrato?')) return;
+  state.subcontratos = state.subcontratos.filter(x => x.id !== id);
+  saveState(); renderSubcontratos();
+}
+
+// ============================================================
+// CRONOGRAMA
+// ============================================================
+let cronoTab = 'resumen';
+function setCronoTab(tab, el) {
+  cronoTab = tab;
+  document.querySelectorAll('#page-cronograma .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('crono-resumen-section').style.display = tab === 'resumen' ? 'block' : 'none';
+  document.getElementById('crono-mensual-section').style.display = tab === 'mensual' ? 'block' : 'none';
+  if (tab === 'mensual') renderCronoMensual();
+}
+
+function renderCronograma() {
+  const certs = state.certificaciones;
+  const avanceReal = certs.length > 0 ? Math.max(...certs.map(c => c.avanceGlobal || 0)) : 0;
+  const avanceEst = calcAvanceEstimado();
+  const desvio = avanceEst - avanceReal;
+
+  document.getElementById('avance-real-pct').textContent = fmtPct(avanceReal);
+  document.getElementById('avance-real-bar').style.width = avanceReal + '%';
+  document.getElementById('avance-est-pct').textContent = fmtPct(avanceEst);
+  document.getElementById('avance-est-bar').style.width = avanceEst + '%';
+
+  document.getElementById('desvio-icon').textContent = desvio > 10 ? '🔴' : desvio > 0 ? '⚠️' : '✅';
+  document.getElementById('desvio-valor').textContent = (desvio > 0 ? '-' : '+') + Math.abs(desvio).toFixed(1) + '%';
+  document.getElementById('desvio-desc').textContent = desvio > 10 ? 'Retraso crítico' : desvio > 0 ? 'Leve retraso' : 'En tiempo o adelantado';
+  document.getElementById('desvio-detalle').textContent = `Real: ${fmtPct(avanceReal)} | Estimado a hoy: ${fmtPct(avanceEst)}`;
+
+  renderCurvaAvance();
+
+  // Hitos
+  const hoy = new Date();
+  document.getElementById('hitos-container').innerHTML = state.hitos.map(h => {
+    const estDate = new Date(h.fechaEst);
+    const realDate = h.fechaReal ? new Date(h.fechaReal) : null;
+    const done = realDate !== null;
+    const late = !done && estDate < hoy;
+    return `
+      <div class="flex items-center gap-4" style="padding:12px 0; border-bottom:1px solid var(--border)">
+        <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;background:${done?'rgba(34,197,94,0.15)':late?'rgba(239,68,68,0.15)':'rgba(108,99,255,0.15)'}">
+          ${done?'✅':late?'🔴':'⏳'}
+        </div>
+        <div style="flex:1">
+          <div class="text-sm font-bold">${h.nombre}</div>
+          <div class="text-xs text-2">Est: ${h.fechaEst}${h.fechaReal ? ' · Real: ' + h.fechaReal : ''}</div>
+        </div>
+        <div class="text-sm font-bold" style="color:var(--accent)">${h.pct}% obra</div>
+        <div>
+          ${!h.fechaReal ? `<button class="btn btn-success btn-sm" onclick="completarHito('${h.id}')">✓ Completar</button>` : ''}
+          <button class="btn btn-danger btn-sm" onclick="deleteHito('${h.id}')">🗑</button>
+        </div>
+      </div>
+    `;
+  }).join('') || '<p class="text-2 text-sm">Sin hitos definidos.</p>';
+
+  // Certificaciones
+  document.getElementById('tabla-certificaciones').innerHTML = state.certificaciones
+    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
+    .map(c => {
+      const sub = state.subcontratos.find(s => s.id === c.subcontratoId);
+      return `
+        <tr>
+          <td>${c.fecha}</td>
+          <td>${c.desc}</td>
+          <td>${sub?.nombre || '—'}</td>
+          <td class="font-bold text-green">${fmt(c.monto)}</td>
+          <td>${fmtPct(c.avanceGlobal)}</td>
+          <td><button class="btn btn-danger btn-sm" onclick="deleteCertificacion('${c.id}')">🗑</button></td>
+        </tr>
+      `;
+    }).join('') || '<tr><td colspan="6" class="text-2 text-sm" style="text-align:center;padding:20px">Sin certificaciones</td></tr>';
+
+  const totalCertificado = state.certificaciones.reduce((s, c) => s + (c.monto || 0), 0);
+  document.getElementById('tfoot-certificaciones').innerHTML = state.certificaciones.length === 0 ? '' : `
+    <tr><td colspan="3" class="font-bold">TOTAL (${state.certificaciones.length})</td><td class="font-bold text-green">${fmt(totalCertificado)}</td><td colspan="2"></td></tr>
+  `;
+}
+
+function renderCurvaAvance() {
+  const subsConCurva = state.subcontratos.filter(s => s.cronogramaProyectado && Object.keys(s.cronogramaProyectado).length);
+  const card = document.getElementById('card-curva-avance');
+  if (subsConCurva.length === 0) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+
+  document.getElementById('curva-avance-container').innerHTML = subsConCurva.map(s => {
+    const meses = Object.keys(s.cronogramaProyectado);
+    let acumulado = 0;
+    const puntos = meses.map(m => {
+      acumulado += s.cronogramaProyectado[m];
+      return { mes: m, mensual: s.cronogramaProyectado[m], acumulado };
+    });
+    const h = 140;
+    const avanceEst = s.avanceEst || 0;
+    const avanceReal = s.avanceReal || 0;
+    // Mes "actual" aproximado: el primero cuyo acumulado proyectado alcanza el avance estimado a hoy.
+    let idxHoy = puntos.findIndex(p => p.acumulado >= avanceEst);
+    if (idxHoy === -1) idxHoy = puntos.length - 1;
+
+    const barras = puntos.map((p, i) => {
+      const hProy = Math.max(2, (p.acumulado / 100) * h);
+      const esHoy = i === idxHoy;
+      return `
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:28px">
+          <div style="position:relative;height:${h}px;width:100%;display:flex;align-items:flex-end;justify-content:center;">
+            <div style="width:14px;height:${hProy}px;background:${esHoy ? 'var(--accent)' : 'var(--surface2)'};border:1px solid var(--border);border-radius:3px 3px 0 0;" title="${p.mes} — Proyectado acumulado: ${p.acumulado.toFixed(1)}% (mes: ${p.mensual.toFixed(1)}%)"></div>
+            ${esHoy ? `<div style="position:absolute;bottom:${Math.max(2,(avanceReal/100*h))}px;left:50%;transform:translate(-50%,50%);width:10px;height:10px;border-radius:50%;background:var(--green);border:2px solid var(--surface)" title="Avance real hoy: ${fmtPct(avanceReal)}"></div>` : ''}
+          </div>
+          <div class="chart-label" style="${esHoy ? 'color:var(--accent);font-weight:700' : ''}">${p.mes}</div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="mb-6">
+        <div class="flex justify-between items-center mb-2">
+          <span class="font-bold text-sm">${s.nombre}</span>
+          <span class="text-xs text-2">Proyectado a hoy: <b class="text-accent">${fmtPct(avanceEst)}</b> · Real: <b class="${avanceReal < avanceEst ? 'text-yellow' : 'text-green'}">${fmtPct(avanceReal)}</b></span>
+        </div>
+        <div style="display:flex;gap:3px;overflow-x:auto;padding-bottom:4px">${barras}</div>
+        <div class="flex gap-4 mt-2 text-xs text-2">
+          <span>▮ % acumulado proyectado</span>
+          <span style="color:var(--accent)">▮ mes actual (curva)</span>
+          <span style="color:var(--green)">● avance real</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+const MS_DIA = 1000 * 60 * 60 * 24;
+const DIAS_MES = 30.44;
+function mesesArray(desde, hasta) {
+  const meses = [];
+  let d = new Date(desde.getFullYear(), desde.getMonth(), 1);
+  const end = new Date(hasta.getFullYear(), hasta.getMonth(), 1);
+  while (d <= end) {
+    meses.push(new Date(d));
+    d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+  }
+  return meses;
+}
+function fmtMes(d) { return d.toLocaleString('es-AR', { month: 'short', year: '2-digit' }); }
+
+// Avance estimado acumulado (%) de un subcontrato en una fecha dada: usa su curva contractual real
+// si existe (cronogramaProyectado), o una proyección lineal entre su inicio y fin de contrato.
+function avanceEstimadoSubEnFecha(s, fecha) {
+  const inicio = s.inicio ? new Date(s.inicio) : null;
+  const fin = s.fin ? new Date(s.fin) : null;
+  if (!inicio || !fin) return s.avanceEst || 0;
+  if (fecha < inicio) return 0;
+  if (fecha > fin) return 100;
+  if (s.cronogramaProyectado) {
+    const valores = Object.values(s.cronogramaProyectado);
+    let acc = 0;
+    const cum = valores.map(v => { acc += v; return acc; });
+    const idx = Math.min(cum.length - 1, Math.max(0, Math.round((fecha - inicio) / (MS_DIA * DIAS_MES))));
+    return cum[idx];
+  }
+  const totalMeses = Math.max(1, Math.round((fin - inicio) / (MS_DIA * DIAS_MES)));
+  const transcurridos = Math.round((fecha - inicio) / (MS_DIA * DIAS_MES));
+  return Math.min(100, Math.max(0, (transcurridos / totalMeses) * 100));
+}
+
+// Caja consolidada real (todas las cuentas convertidas a USD con el TC del proyecto).
+function calcSaldoCajaConsolidadoUSD() {
+  const tc = state.proyecto.tc || 1450;
+  return Object.keys(cajaInfo).reduce((sum, c) => {
+    const saldo = calcSaldoCaja(c);
+    const moneda = cajaInfo[c].moneda || 'USD';
+    return sum + (moneda === 'ARS' ? saldo / tc : saldo);
+  }, 0);
+}
+
+// Cashflow mensual proyectado, con el saldo acumulado arrancando desde la caja real de hoy
+// (no desde cero) — así se puede ver en qué mes la obra se queda sin caja para pagar.
+function calcCashflowMensualGlobal() {
+  const subs = state.subcontratos;
+  const hoy = new Date();
+  if (subs.length === 0) return null;
+
+  const inicios = subs.filter(s => s.inicio).map(s => new Date(s.inicio));
+  const fines = subs.filter(s => s.fin).map(s => new Date(s.fin));
+  const desde = inicios.length ? new Date(Math.min(...inicios)) : hoy;
+  const hasta = fines.length ? new Date(Math.max(...fines)) : hoy;
+  const meses = mesesArray(desde, hasta);
+  const hoyMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+
+  const montoTotal = subs.reduce((s, x) => s + (x.monto || 0), 0);
+  const ventasActivas = state.ventas.filter(v => v.estado === 'boleto' || v.estado === 'escritura');
+  const cajaInicial = calcSaldoCajaConsolidadoUSD();
+
+  let saldoAcumulado = cajaInicial;
+  const filas = meses.map((mesDate, mi) => {
+    // Ingreso: cuotas pendientes de ventas firmes, contadas desde el mes actual hacia adelante
+    let ingreso = 0;
+    if (mesDate >= hoyMes) {
+      const mesesDesdeHoy = Math.round((mesDate - hoyMes) / (MS_DIA * DIAS_MES));
+      ventasActivas.forEach(v => {
+        const cuotaValor = v.cuotas > 0 ? (v.precio - (v.sena || 0)) / v.cuotas : 0;
+        const pendientes = Math.max(0, (v.cuotas || 0) - (v.cuotasCobradas || 0));
+        if (mesesDesdeHoy >= 0 && mesesDesdeHoy < pendientes) ingreso += cuotaValor;
+      });
+    }
+    // Egreso: delta de avance estimado mes a mes de cada subcontrato × su monto
+    let egreso = 0;
+    subs.forEach(s => {
+      const avAnt = mi === 0 ? 0 : avanceEstimadoSubEnFecha(s, meses[mi - 1]);
+      const avAct = avanceEstimadoSubEnFecha(s, mesDate);
+      egreso += Math.max(0, avAct - avAnt) / 100 * (s.monto || 0);
+    });
+    const neto = ingreso - egreso;
+    // El saldo real de caja solo se proyecta desde hoy en adelante. Los meses pasados ya están
+    // reflejados en los movimientos reales de caja, sumarlos de nuevo duplicaría el efecto.
+    let saldoProyectado = null;
+    if (mesDate >= hoyMes) { saldoAcumulado += (mesDate.getTime() === hoyMes.getTime() ? 0 : neto); saldoProyectado = saldoAcumulado; }
+    const avanceGlobalEst = montoTotal > 0
+      ? subs.reduce((s, x) => s + avanceEstimadoSubEnFecha(x, mesDate) * (x.monto || 0), 0) / montoTotal
+      : 0;
+    return { mesDate, ingreso, egreso, neto, saldoProyectado, avanceGlobalEst };
+  });
+
+  return { meses, filas, hoyMes, cajaInicial };
+}
+
+function renderCronoMensual() {
+  const data = calcCashflowMensualGlobal();
+  if (!data) {
+    document.getElementById('tabla-cashflow-mensual').innerHTML = '<tr><td class="text-2 text-sm" style="text-align:center;padding:20px">Sin subcontratos cargados</td></tr>';
+    return;
+  }
+  const { meses, filas, hoyMes, cajaInicial } = data;
+  const subs = state.subcontratos;
+
+  document.getElementById('tabla-cashflow-mensual').innerHTML = filas.map(f => {
+    const esHoy = f.mesDate.getTime() === hoyMes.getTime();
+    return `
+      <tr style="${esHoy ? 'background:rgba(108,99,255,0.08)' : ''}">
+        <td class="font-bold">${fmtMes(f.mesDate)}${esHoy ? ' <span class="text-xs text-accent">(hoy)</span>' : ''}</td>
+        <td class="text-green">${fmt(f.ingreso)}</td>
+        <td class="text-red">${fmt(f.egreso)}</td>
+        <td class="${f.neto >= 0 ? 'text-green' : 'text-red'} font-bold">${fmt(f.neto)}</td>
+        <td class="${f.saldoProyectado === null ? 'text-2' : f.saldoProyectado >= 0 ? 'text-2' : 'text-red font-bold'}">${f.saldoProyectado === null ? '—' : fmt(f.saldoProyectado)}</td>
+      </tr>
+    `;
+  }).join('');
+
+  const totalIngreso = filas.reduce((s, f) => s + f.ingreso, 0);
+  const totalEgreso = filas.reduce((s, f) => s + f.egreso, 0);
+  document.getElementById('tfoot-cashflow-mensual').innerHTML = `
+    <tr>
+      <td class="font-bold">TOTAL (${filas.length} meses) · Caja real hoy: ${fmt(cajaInicial)}</td>
+      <td class="font-bold text-green">${fmt(totalIngreso)}</td>
+      <td class="font-bold text-red">${fmt(totalEgreso)}</td>
+      <td class="font-bold ${totalIngreso - totalEgreso >= 0 ? 'text-green' : 'text-red'}">${fmt(totalIngreso - totalEgreso)}</td>
+      <td></td>
+    </tr>
+  `;
+
+  // Tabla de avance estimado por rubro, mes a mes, vs avance real (snapshot actual)
+  document.getElementById('thead-avance-rubro-mensual').innerHTML = `
+    <tr>
+      <th>Rubro</th><th>Real Hoy</th>
+      ${meses.map(m => `<th>${fmtMes(m)}</th>`).join('')}
+    </tr>
+  `;
+  document.getElementById('tabla-avance-rubro-mensual').innerHTML = subs.map(s => {
+    const avanceReal = s.avanceReal || 0;
+    return `
+      <tr>
+        <td class="font-bold">${s.nombre}</td>
+        <td class="font-bold text-accent">${fmtPct(avanceReal)}</td>
+        ${meses.map(m => {
+          const esHoy = m.getFullYear() === hoyMes.getFullYear() && m.getMonth() === hoyMes.getMonth();
+          const avEst = avanceEstimadoSubEnFecha(s, m);
+          const desvio = esHoy ? avEst - avanceReal : null;
+          const color = !esHoy ? '' : desvio > 10 ? 'text-red' : desvio > 0 ? 'text-yellow' : 'text-green';
+          return `<td class="${color}" style="${esHoy ? 'background:rgba(108,99,255,0.08);font-weight:700' : ''}">${avEst.toFixed(0)}%</td>`;
+        }).join('')}
+      </tr>
+    `;
+  }).join('');
+}
+
+function saveCertificacion() {
+  const subId = document.getElementById('cert-subcontrato').value;
+  const c = {
+    id: uid(),
+    subcontratoId: subId,
+    fecha: document.getElementById('cert-fecha').value,
+    desc: document.getElementById('cert-desc').value,
+    monto: parseFloat(document.getElementById('cert-monto').value) || 0,
+    avance: parseFloat(document.getElementById('cert-avance').value) || 0,
+    avanceGlobal: parseFloat(document.getElementById('cert-avance-global').value) || 0,
+  };
+  state.certificaciones.push(c);
+  // Update subcontrato avance real
+  const sub = state.subcontratos.find(s => s.id === subId);
+  if (sub) sub.avanceReal = Math.max(sub.avanceReal || 0, c.avance);
+  saveState(); closeModal('modal-certificacion'); renderCronograma();
+}
+
+function saveHito() {
+  state.hitos.push({
+    id: uid(),
+    nombre: document.getElementById('hito-nombre').value,
+    fechaEst: document.getElementById('hito-fecha-est').value,
+    fechaReal: document.getElementById('hito-fecha-real').value,
+    pct: parseFloat(document.getElementById('hito-pct').value) || 0,
+  });
+  saveState(); closeModal('modal-hito'); renderCronograma();
+}
+
+function completarHito(id) {
+  const h = state.hitos.find(x => x.id === id);
+  h.fechaReal = new Date().toISOString().split('T')[0];
+  saveState(); renderCronograma();
+}
+
+function deleteHito(id) {
+  if (!confirm('¿Eliminar hito?')) return;
+  state.hitos = state.hitos.filter(x => x.id !== id);
+  saveState(); renderCronograma();
+}
+
+function deleteCertificacion(id) {
+  if (!confirm('¿Eliminar certificación?')) return;
+  state.certificaciones = state.certificaciones.filter(x => x.id !== id);
+  saveState(); renderCronograma();
+}
+
+// ============================================================
+// CAJAS
+// ============================================================
+const cajaInfo = {
+  bancoArs: { nombre: 'Banco ARS', icon: '🏦', cls: 'caja-obra', color: 'var(--accent)', moneda: 'ARS' },
+  bancoUsd: { nombre: 'Banco USD', icon: '🏦', cls: 'caja-ventas', color: 'var(--accent2)', moneda: 'USD' },
+  lmc: { nombre: 'LMC', icon: '💵', cls: 'caja-escritura', color: 'var(--accent4)', moneda: 'USD' },
+  ml: { nombre: 'ML', icon: '💵', cls: 'caja-impuestos', color: 'var(--red)', moneda: 'USD' },
+  urvang: { nombre: 'UrVang', icon: '💵', cls: 'caja-fiducia', color: '#a78bfa', moneda: 'USD' },
+};
+
+function renderCajas() {
+  const cajas = Object.keys(cajaInfo);
+  document.getElementById('cajas-cards').innerHTML = cajas.map(c => {
+    const info = cajaInfo[c];
+    const saldo = calcSaldoCaja(c);
+    const ingresos = state.movimientos.filter(m => m.caja === c && m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0);
+    const egresos = state.movimientos.filter(m => m.caja === c && m.tipo === 'egreso').reduce((s, m) => s + m.monto, 0);
+    return `
+      <div class="caja-card ${info.cls}">
+        <div class="flex justify-between items-center mb-3">
+          <div class="text-sm font-bold">${info.icon} ${info.nombre}</div>
+          <button class="btn btn-secondary btn-sm" onclick="openMovForCaja('${c}')">+ Mov.</button>
+        </div>
+        <div style="font-size:24px;font-weight:700;color:${saldo >= 0 ? 'var(--green)' : 'var(--red)'};margin-bottom:8px">${info.moneda === 'ARS' ? '$' + fmtNum(Math.round(saldo)) : fmt(saldo)} <span class="text-xs text-2">${info.moneda}</span></div>
+        <div class="flex justify-between text-xs text-2">
+          <span class="text-green">↑ ${info.moneda === 'ARS' ? '$' + fmtNum(Math.round(ingresos)) : fmt(ingresos)}</span>
+          <span class="text-red">↓ ${info.moneda === 'ARS' ? '$' + fmtNum(Math.round(egresos)) : fmt(egresos)}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+  renderMovimientos();
+}
+
+function openMovForCaja(caja) {
+  nuevoRegistro('modal-movimiento');
+  document.getElementById('mov-caja').value = caja;
+  updateMovMonedaLabel();
+}
+
+function renderMovimientos() {
+  const filtro = document.getElementById('filtro-caja')?.value || 'todas';
+  const movs = state.movimientos
+    .filter(m => filtro === 'todas' || m.caja === filtro)
+    .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+  // Calculate running balance per caja
+  const saldos = {};
+  const sorted = [...state.movimientos].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+  document.getElementById('tabla-movimientos').innerHTML = movs.map(m => {
+    const info = cajaInfo[m.caja];
+    const saldoCaja = calcSaldoCaja(m.caja);
+    return `
+      <tr>
+        <td>${m.fecha}</td>
+        <td>${info?.icon} ${info?.nombre || m.caja}</td>
+        <td><span class="badge ${m.tipo === 'ingreso' ? 'badge-green' : m.tipo === 'transferencia' ? 'badge-blue' : 'badge-red'}">${m.tipo}</span></td>
+        <td>${m.concepto}</td>
+        <td class="${m.tipo === 'ingreso' ? 'text-green font-bold' : 'text-red font-bold'}">${m.tipo === 'ingreso' ? '+' : '-'}${fmt(m.monto)} <span class="text-xs text-2">${info?.moneda || ''}</span></td>
+        <td class="text-2">${fmt(saldoCaja)} <span class="text-xs">${info?.moneda || ''}</span></td>
+      </tr>
+    `;
+  }).join('') || '<tr><td colspan="6" class="text-2 text-sm" style="text-align:center;padding:20px">Sin movimientos</td></tr>';
+
+  // Total neto por moneda (no se mezcla ARS con USD en la misma suma).
+  const netoPorMoneda = {};
+  movs.forEach(m => {
+    const moneda = cajaInfo[m.caja]?.moneda || 'USD';
+    netoPorMoneda[moneda] = (netoPorMoneda[moneda] || 0) + (m.tipo === 'ingreso' ? m.monto : -m.monto);
+  });
+  const totalTexto = Object.entries(netoPorMoneda).map(([moneda, val]) =>
+    `<span class="${val >= 0 ? 'text-green' : 'text-red'}">${fmt(val)} ${moneda}</span>`
+  ).join(' · ');
+  document.getElementById('tfoot-movimientos').innerHTML = movs.length === 0 ? '' : `
+    <tr><td colspan="4" class="font-bold">TOTAL NETO (${movs.length} mov.)</td><td class="font-bold">${totalTexto}</td><td></td></tr>
+  `;
+}
+
+function updateMovMonedaLabel() {
+  const caja = document.getElementById('mov-caja').value;
+  const moneda = cajaInfo[caja]?.moneda || 'USD';
+  document.getElementById('mov-monto-label').textContent = `Monto (${moneda})`;
+}
+
+function saveMovimiento() {
+  const tipo = document.getElementById('mov-tipo').value;
+  const caja = document.getElementById('mov-caja').value;
+  const monto = parseFloat(document.getElementById('mov-monto').value) || 0;
+  const fecha = document.getElementById('mov-fecha').value;
+  const concepto = document.getElementById('mov-concepto').value;
+
+  state.movimientos.push({ id: uid(), caja, tipo, fecha, monto, concepto });
+
+  if (tipo === 'transferencia') {
+    const cajaDest = document.getElementById('mov-caja-dest').value;
+    const monedaOrigen = cajaInfo[caja]?.moneda || 'USD';
+    const monedaDestino = cajaInfo[cajaDest]?.moneda || 'USD';
+    const tc = state.proyecto.tc || 1450;
+    let montoDestino = monto;
+    if (monedaOrigen !== monedaDestino) {
+      montoDestino = monedaOrigen === 'ARS' ? Math.round(monto / tc) : Math.round(monto * tc);
+    }
+    state.movimientos.push({ id: uid(), caja: cajaDest, tipo: 'ingreso', fecha, monto: montoDestino, concepto: `Transferencia desde ${cajaInfo[caja]?.nombre}: ${concepto}${monedaOrigen !== monedaDestino ? ` (convertido ${monedaOrigen}→${monedaDestino} a TC ${tc})` : ''}` });
+  }
+
+  saveState(); closeModal('modal-movimiento'); renderCajas();
+}
+
+// ============================================================
+// RENTABILIDAD
+// ============================================================
+function renderRentabilidad() {
+  const kpis = calcKPIs();
+  const unidades = state.unidades;
+  const m2Total = unidades.reduce((s, u) => s + (u.m2Total || 0), 0); // toda la superficie construida (para costo/m²)
+  const costoTotal = state.proyecto.presupuesto || 0;
+  const costom2 = m2Total > 0 ? costoTotal / m2Total : 0;
+  // Unidades vendibles = excluye canjeadas (no van a generar una venta/ingreso real, son trueque ya consumado).
+  const unidadesVendibles = unidades.filter(u => !(u.estadoComercial || '').startsWith('canje_'));
+  const m2Vendible = unidadesVendibles.reduce((s, u) => s + (u.m2Total || 0), 0);
+  const precioListaVendible = unidadesVendibles.reduce((s, u) => s + (u.precio || 0), 0);
+
+  document.getElementById('rent-kpis').innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Margen Bruto Proyectado</div>
+      <div class="kpi-value ${kpis.margenPct >= 20 ? 'text-green' : kpis.margenPct >= 10 ? 'text-yellow' : 'text-red'}">${fmtPct(kpis.margenPct)}</div>
+      <div class="kpi-sub">${fmt(kpis.margenBruto)} (ventas + disponibles a lista + cocheras/local, en efectivo)</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Ingreso Total Proyectado</div>
+      <div class="kpi-value text-green">${fmt(kpis.ingresoTotalProyectado)}</div>
+      <div class="kpi-sub">vs. costo total ${fmt(kpis.costoTotal)}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Costo por m²</div>
+      <div class="kpi-value">${fmt(costom2)}/m²</div>
+      <div class="kpi-sub">Presupuesto total: ${fmt(costoTotal)}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Precio Lista Prom/m² (vendible)</div>
+      <div class="kpi-value">${fmt(m2Vendible > 0 ? precioListaVendible/m2Vendible : 0)}/m²</div>
+      <div class="kpi-sub">Excluye canjes · Margen sobre costo: ${fmtPct(costom2 > 0 ? (m2Vendible > 0 ? precioListaVendible/m2Vendible/costom2*100-100 : 0) : 0)}</div>
+    </div>
+  `;
+
+  // Punto de equilibrio — cocheras y Local a precio FIJO (no varían), se resuelve
+  // el precio/m² promedio necesario solo sobre las unidades residenciales disponibles.
+  const localUnidad = state.unidades.find(u => u.numero === 'PB');
+  const localDisponible = localUnidad && localUnidad.estadoComercial === 'disponible';
+  const localPrecioFijo = localDisponible ? (localUnidad.precio || 0) : 0;
+  const m2DisponibleResidencial = kpis.m2Disponible - (localDisponible ? localUnidad.m2Total : 0);
+
+  // El valor canjeado NO entra como ingreso en efectivo: es trueque, no genera caja para pagar la obra.
+  const ingresoFijo = kpis.ingresoVentas + kpis.cocherasTotalFijo + localPrecioFijo;
+  const faltanteACubrir = costoTotal - ingresoFijo;
+  const precioM2BreakEven = m2DisponibleResidencial > 0 ? faltanteACubrir / m2DisponibleResidencial : 0;
+  const precioM2ListaResidencial = m2DisponibleResidencial > 0
+    ? (kpis.listaDisponibles - (localDisponible ? localPrecioFijo : 0)) / m2DisponibleResidencial
+    : 0;
+  const breakEvenOk = precioM2BreakEven <= precioM2ListaResidencial;
+
+  document.getElementById('equilibrio-container').innerHTML = `
+    <div class="alert ${breakEvenOk ? 'alert-success' : 'alert-warning'} mb-4">
+      Con lo ya vendido en efectivo (${fmt(kpis.ingresoVentas)}) y cocheras+local
+      a precio fijo (${fmt(kpis.cocherasTotalFijo + localPrecioFijo)}), faltan cubrir <b>${fmt(faltanteACubrir)}</b>
+      con las <b>${fmtNum(m2DisponibleResidencial)} m²</b> residenciales disponibles.
+      Eso implica un precio promedio de <b>${fmt(precioM2BreakEven)}/m²</b>
+      ${breakEvenOk ? '— por debajo del precio de lista actual ✅' : '— por encima del precio de lista actual ⚠️'}.
+      <div class="text-xs mt-2">No se cuenta el valor canjeado: ${fmt(kpis.valorCanjeado)} en unidades (tierra/honorarios/obra) + ${fmt(kpis.valorCanjeCocheras)} en cocheras (honorarios) — es trueque, no efectivo disponible para pagar la obra.</div>
+    </div>
+    <table style="width:100%;font-size:13px">
+      <tr><td class="text-2 pb-2">Ingreso fijo en efectivo (ventas + cocheras + local)</td><td class="font-bold text-right">${fmt(ingresoFijo)}</td></tr>
+      <tr><td class="text-2 pb-2">Costo total del proyecto</td><td class="font-bold text-right">${fmt(costoTotal)}</td></tr>
+      <tr><td class="text-2 pb-2">Faltante a cubrir con disponibles</td><td class="font-bold text-right">${fmt(faltanteACubrir)}</td></tr>
+      <tr><td class="text-2 pb-2">m² residenciales disponibles</td><td class="font-bold text-right">${fmtNum(m2DisponibleResidencial)} m²</td></tr>
+      <tr><td class="text-2 pb-2"><b>Precio/m² break-even necesario</b></td><td class="font-bold text-right text-accent">${fmt(precioM2BreakEven)}/m²</td></tr>
+      <tr><td class="text-2">Precio/m² lista actual (disponibles)</td><td class="font-bold text-right">${fmt(precioM2ListaResidencial)}/m²</td></tr>
+      <tr><td class="text-2 pb-2" style="padding-top:8px">Valor canjeado (informativo, no es caja)</td><td class="text-right" style="padding-top:8px">${fmt(kpis.valorCanjeado)}</td></tr>
+    </table>
+  `;
+
+  // Simulador
+  document.getElementById('sim-precio').value = document.getElementById('sim-precio').value || Math.round(m2Vendible > 0 ? precioListaVendible/m2Vendible : 0);
+  document.getElementById('sim-pct').value = document.getElementById('sim-pct').value || 100;
+  runSimulador();
+
+  // Escenarios — sobre m² vendibles (excluye canje) + cocheras/local fijo
+  const escenarios = [
+    { nombre: 'Pesimista', precioPct: 0.85, ventasPct: 60 },
+    { nombre: 'Base', precioPct: 1.0, ventasPct: 90 },
+    { nombre: 'Optimista', precioPct: 1.1, ventasPct: 100 },
+    { nombre: 'Excelente', precioPct: 1.2, ventasPct: 100 },
+  ];
+  const precioBase = m2Vendible > 0 ? precioListaVendible / m2Vendible : 0;
+
+  document.getElementById('tabla-escenarios').innerHTML = escenarios.map(e => {
+    const precioEsc = precioBase * e.precioPct;
+    const ingresoEsc = m2Vendible * precioEsc * (e.ventasPct / 100) + kpis.cocherasTotalFijo;
+    const margenEsc = ingresoEsc - costoTotal;
+    const margenPctEsc = costoTotal > 0 ? margenEsc / costoTotal * 100 : 0;
+    const tirAprox = margenPctEsc / 2; // muy simplificado
+    const ok = margenPctEsc >= 20;
+    return `
+      <tr>
+        <td class="font-bold">${e.nombre}</td>
+        <td>${fmt(precioEsc)}/m²</td>
+        <td>${fmtPct(e.ventasPct)}</td>
+        <td>${fmt(ingresoEsc)}</td>
+        <td>${fmt(costoTotal)}</td>
+        <td class="${ok ? 'text-green' : 'text-red'} font-bold">${fmtPct(margenPctEsc)}</td>
+        <td class="${ok ? 'text-green' : 'text-yellow'}">${tirAprox.toFixed(1)}% anual</td>
+      </tr>
+    `;
+  }).join('');
+
+  renderEstimadoVsContratado();
+  renderCostosBlandos();
+}
+
+// ============================================================
+// ESTIMADO VS CONTRATADO (costos cerrados, gestión manual)
+// ============================================================
+function updateEvcRubroSelect() {
+  const tipo = document.getElementById('evc-tipo').value;
+  const sel = document.getElementById('evc-rubro');
+  const opciones = tipo === 'blando'
+    ? state.costosBlandos.map(c => c.rubro)
+    : state.subcontratos.map(s => s.nombre);
+  sel.innerHTML = opciones.map(r => `<option value="${r}">${r}</option>`).join('');
+}
+
+function saveCostoCerrado() {
+  const id = document.getElementById('evc-edit-id').value || uid();
+  const c = {
+    id,
+    tipo: document.getElementById('evc-tipo').value,
+    rubro: document.getElementById('evc-rubro').value,
+    montoContratadoUSD: parseFloat(document.getElementById('evc-monto').value) || 0,
+    fecha: document.getElementById('evc-fecha').value,
+    notas: document.getElementById('evc-notas').value,
+  };
+  const idx = state.costosCerrados.findIndex(x => x.id === id);
+  if (idx >= 0) state.costosCerrados[idx] = c; else state.costosCerrados.push(c);
+  saveState(); closeModal('modal-costo-cerrado'); renderEstimadoVsContratado();
+}
+
+function editCostoCerrado(id) {
+  const c = state.costosCerrados.find(x => x.id === id);
+  document.getElementById('evc-edit-id').value = c.id;
+  document.getElementById('evc-tipo').value = c.tipo;
+  updateEvcRubroSelect();
+  document.getElementById('evc-rubro').value = c.rubro;
+  document.getElementById('evc-monto').value = c.montoContratadoUSD;
+  document.getElementById('evc-fecha').value = c.fecha;
+  document.getElementById('evc-notas').value = c.notas || '';
+  openModal('modal-costo-cerrado');
+}
+
+function deleteCostoCerrado(id) {
+  if (!confirm('¿Sacar este costo de la lista de cerrados?')) return;
+  state.costosCerrados = state.costosCerrados.filter(x => x.id !== id);
+  saveState(); renderEstimadoVsContratado();
+}
+
+function renderEstimadoVsContratado() {
+  const filaTabla = (rubro, estimadoUSD, cerrado) => {
+    const contratadoUSD = cerrado ? cerrado.montoContratadoUSD : null;
+    const diferencia = cerrado ? contratadoUSD - estimadoUSD : null;
+    return `
+      <tr>
+        <td class="font-bold">${rubro}</td>
+        <td>${fmt(estimadoUSD)}</td>
+        <td>${cerrado ? fmt(contratadoUSD) : '<span class="text-2">—</span>'}</td>
+        <td class="${diferencia === null ? 'text-2' : diferencia > 0 ? 'text-red' : 'text-green'}">${diferencia === null ? '—' : (diferencia > 0 ? '+' : '') + fmt(diferencia)}</td>
+        <td><span class="badge ${cerrado ? 'badge-green' : 'badge-gray'}">${cerrado ? 'Contratado' : 'Pendiente'}</span></td>
+        <td>${cerrado
+          ? `<button class="btn btn-secondary btn-sm" onclick="editCostoCerrado('${cerrado.id}')">✏️</button> <button class="btn btn-danger btn-sm" onclick="deleteCostoCerrado('${cerrado.id}')">🗑</button>`
+          : '<span class="text-2 text-xs">sin cerrar</span>'}</td>
+      </tr>
+    `;
+  };
+
+  // Costos Blandos
+  let totalEstBlandos = 0, totalContrBlandos = 0, cerradosBlandos = 0;
+  const filasBlandos = state.costosBlandos.map(c => {
+    const cerrado = state.costosCerrados.find(x => x.tipo === 'blando' && x.rubro === c.rubro);
+    totalEstBlandos += c.totalUSD || 0;
+    if (cerrado) { totalContrBlandos += cerrado.montoContratadoUSD || 0; cerradosBlandos++; }
+    return filaTabla(c.rubro, c.totalUSD || 0, cerrado);
+  }).join('');
+  document.getElementById('tabla-evc-blandos').innerHTML = filasBlandos;
+  document.getElementById('tfoot-evc-blandos').innerHTML = `
+    <tr>
+      <td class="font-bold">Total (${cerradosBlandos}/${state.costosBlandos.length} cerrados)</td>
+      <td class="font-bold">${fmt(totalEstBlandos)}</td>
+      <td class="font-bold">${fmt(totalContrBlandos)}</td>
+      <td class="font-bold ${totalContrBlandos - totalEstBlandos > 0 ? 'text-red' : 'text-green'}">${cerradosBlandos > 0 ? fmt(totalContrBlandos - totalEstBlandos) : '—'}</td>
+      <td colspan="2"></td>
+    </tr>
+  `;
+
+  // Costos de Obra (subcontratos)
+  let totalEstObra = 0, totalContrObra = 0, cerradosObra = 0;
+  const filasObra = state.subcontratos.map(s => {
+    const cerrado = state.costosCerrados.find(x => x.tipo === 'obra' && x.rubro === s.nombre);
+    // Estimado = presupuesto base original (sin actualizar) si está cargado; si no, el monto actual.
+    const estimadoUSD = s.presupuestoBaseARS ? Math.round(s.presupuestoBaseARS / (state.proyecto.tc || 1450)) : (s.monto || 0);
+    totalEstObra += estimadoUSD;
+    if (cerrado) { totalContrObra += cerrado.montoContratadoUSD || 0; cerradosObra++; }
+    return filaTabla(s.nombre, estimadoUSD, cerrado);
+  }).join('');
+  document.getElementById('tabla-evc-obra').innerHTML = filasObra;
+  document.getElementById('tfoot-evc-obra').innerHTML = `
+    <tr>
+      <td class="font-bold">Total (${cerradosObra}/${state.subcontratos.length} cerrados)</td>
+      <td class="font-bold">${fmt(totalEstObra)}</td>
+      <td class="font-bold">${fmt(totalContrObra)}</td>
+      <td class="font-bold ${totalContrObra - totalEstObra > 0 ? 'text-red' : 'text-green'}">${cerradosObra > 0 ? fmt(totalContrObra - totalEstObra) : '—'}</td>
+      <td colspan="2"></td>
+    </tr>
+  `;
+}
+
+function renderCostosBlandos() {
+  const total = state.costosBlandos.reduce((s, c) => s + c.totalUSD, 0);
+  const pagado = state.costosBlandos.reduce((s, c) => s + c.pagadoUSD, 0);
+  document.getElementById('costos-blandos-total').textContent = `Total: ${fmt(total)} · Pagado: ${fmt(pagado)} · Saldo: ${fmt(total - pagado)}`;
+  document.getElementById('tabla-costos-blandos').innerHTML = state.costosBlandos.map(c => {
+    const saldo = c.totalUSD - c.pagadoUSD;
+    const pct = c.totalUSD > 0 ? (c.pagadoUSD / c.totalUSD * 100) : 0;
+    return `
+      <tr>
+        <td><span class="badge badge-gray">${c.categoria}</span></td>
+        <td>${c.rubro}</td>
+        <td class="font-bold">${fmt(c.totalUSD)}</td>
+        <td class="text-green">${fmt(c.pagadoUSD)}</td>
+        <td class="${saldo > 0 ? 'text-yellow' : 'text-2'}">${fmt(saldo)}</td>
+        <td>${fmtPct(pct)}</td>
+        <td>
+          <button class="btn btn-secondary btn-sm" onclick="editCostoBlando('${c.id}')">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteCostoBlando('${c.id}')">🗑</button>
+        </td>
+      </tr>
+    `;
+  }).join('') || '<tr><td colspan="7" class="text-2 text-sm" style="text-align:center;padding:20px">Sin costos blandos cargados</td></tr>';
+
+  document.getElementById('tfoot-costos-blandos').innerHTML = state.costosBlandos.length === 0 ? '' : `
+    <tr>
+      <td colspan="2" class="font-bold">TOTAL (${state.costosBlandos.length})</td>
+      <td class="font-bold">${fmt(total)}</td>
+      <td class="font-bold text-green">${fmt(pagado)}</td>
+      <td class="font-bold ${(total - pagado) > 0 ? 'text-yellow' : 'text-2'}">${fmt(total - pagado)}</td>
+      <td class="font-bold">${fmtPct(total > 0 ? pagado / total * 100 : 0)}</td>
+      <td></td>
+    </tr>
+  `;
+}
+
+function saveCostoBlando() {
+  const id = document.getElementById('cb-edit-id').value || uid();
+  const c = {
+    id,
+    categoria: document.getElementById('cb-categoria').value,
+    rubro: document.getElementById('cb-rubro').value,
+    totalUSD: parseFloat(document.getElementById('cb-total').value) || 0,
+    pagadoUSD: parseFloat(document.getElementById('cb-pagado').value) || 0,
+  };
+  const idx = state.costosBlandos.findIndex(x => x.id === id);
+  if (idx >= 0) state.costosBlandos[idx] = c; else state.costosBlandos.push(c);
+  // Recalcula el presupuesto total del proyecto (obra + blandos) tras el alta/edición.
+  state.proyecto.presupuesto = Math.round(
+    state.subcontratos.reduce((s, x) => s + (x.monto || 0), 0) +
+    state.costosBlandos.reduce((s, x) => s + (x.totalUSD || 0), 0)
+  );
+  saveState(); closeModal('modal-costo-blando'); renderRentabilidad();
+}
+
+function editCostoBlando(id) {
+  const c = state.costosBlandos.find(x => x.id === id);
+  document.getElementById('cb-edit-id').value = c.id;
+  document.getElementById('modal-costo-blando-title').textContent = 'Editar Costo Blando';
+  document.getElementById('cb-categoria').value = c.categoria;
+  document.getElementById('cb-rubro').value = c.rubro;
+  document.getElementById('cb-total').value = c.totalUSD;
+  document.getElementById('cb-pagado').value = c.pagadoUSD;
+  openModal('modal-costo-blando');
+}
+
+function deleteCostoBlando(id) {
+  if (!confirm('¿Eliminar este costo blando?')) return;
+  state.costosBlandos = state.costosBlandos.filter(x => x.id !== id);
+  state.proyecto.presupuesto = Math.round(
+    state.subcontratos.reduce((s, x) => s + (x.monto || 0), 0) +
+    state.costosBlandos.reduce((s, x) => s + (x.totalUSD || 0), 0)
+  );
+  saveState(); renderRentabilidad();
+}
+
+function runSimulador() {
+  const precio = parseFloat(document.getElementById('sim-precio').value) || 0;
+  const pct = parseFloat(document.getElementById('sim-pct').value) || 100;
+  // Excluye unidades canjeadas: nunca van a generar un ingreso de venta.
+  const m2Vendible = state.unidades.filter(u => !(u.estadoComercial || '').startsWith('canje_')).reduce((s, u) => s + (u.m2Total || 0), 0);
+  const costoTotal = state.proyecto.presupuesto || 0;
+
+  const ingreso = m2Vendible * precio * (pct / 100) + calcKPIs().cocherasTotalFijo;
+  const margen = ingreso - costoTotal;
+  const margenPct = costoTotal > 0 ? margen / costoTotal * 100 : 0;
+  const ok = margenPct >= 20;
+  const warn = margenPct >= 0 && margenPct < 20;
+
+  document.getElementById('sim-resultado').innerHTML = `
+    <div class="flex justify-between items-center mb-3">
+      <span class="text-sm">Ingreso proyectado</span>
+      <span class="font-bold">${fmt(ingreso)}</span>
+    </div>
+    <div class="flex justify-between items-center mb-3">
+      <span class="text-sm">Costo total</span>
+      <span class="font-bold">${fmt(costoTotal)}</span>
+    </div>
+    <div class="flex justify-between items-center mb-3">
+      <span class="text-sm font-bold">Margen bruto</span>
+      <span class="font-bold ${ok ? 'text-green' : warn ? 'text-yellow' : 'text-red'}">${fmt(margen)} (${fmtPct(margenPct)})</span>
+    </div>
+    <div class="alert ${ok ? 'alert-success' : warn ? 'alert-warning' : 'alert-danger'}">
+      ${ok ? '✅ Proyecto rentable con este escenario.' : warn ? '⚠️ Margen bajo. Revisar precios o costos.' : '🔴 Proyecto en pérdida con este escenario.'}
+    </div>
+  `;
+}
+
+// ============================================================
+// EXPORT
+// ============================================================
+function exportData() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `erp-${state.proyecto.nombre || 'proyecto'}-${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+}
+
+// Restaura un backup JSON exportado previamente. Pide confirmación porque reemplaza
+// todo el estado actual (útil si los datos del navegador se desincronizaron).
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.unidades || !Array.isArray(data.unidades)) throw new Error('El archivo no parece un backup válido del ERP.');
+      if (!confirm('Esto va a reemplazar TODOS los datos actuales por los del backup. ¿Continuar?')) { event.target.value = ''; return; }
+      state = data;
+      if (!state.costosCerrados) state.costosCerrados = [];
+      saveState();
+      navigate('dashboard');
+      alert('Backup importado correctamente.');
+    } catch (err) {
+      alert('No se pudo importar: ' + err.message);
+    }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+try {
+  loadState();
+  renderDashboard();
+} catch (e) {
+  console.error(e);
+  document.querySelector('.main').innerHTML = `
+    <div class="alert alert-danger" style="font-size:14px">
+      <b>Error al cargar la app:</b> ${e.message}<br>
+      <span class="text-xs">Abrí la consola del navegador (F12 / Cmd+Opt+I) para ver el detalle completo. Avisame el mensaje y lo arreglo.</span>
+    </div>
+  `;
+}
+</script>
+</body>
+</html>
