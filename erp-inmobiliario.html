@@ -557,6 +557,20 @@
 
       <div id="crono-mensual-section" style="display:none">
         <div class="card mb-6">
+          <div class="card-title mb-4">Estructura — Plan vs. Real (mes a mes)</div>
+          <div class="text-xs text-2 mb-4">Egreso proyectado = plan de trabajos real de ZAGA distribuido por mes. Avance real = imputado de los certificados cargados (acumulado a cada mes). El desvío compara, a cada mes con certificado, lo ejecutado real contra lo que marcaba el plan.</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Mes</th><th>% Plan (acum)</th><th>% Real (acum)</th><th>Egreso Proyectado</th><th>Certificado Real</th><th>Desvío</th></tr>
+              </thead>
+              <tbody id="tabla-estructura-mensual"></tbody>
+              <tfoot id="tfoot-estructura-mensual"></tfoot>
+            </table>
+          </div>
+        </div>
+
+        <div class="card mb-6">
           <div class="card-title mb-4">Cashflow Mensual Proyectado (todo el horizonte de obra)</div>
           <div class="text-xs text-2 mb-4">Ingreso = cuotas pendientes de ventas con boleto/escritura. Egreso = saldo de cada subcontrato distribuido linealmente hasta su fecha de fin. No incluye canjes (no generan caja). La columna "Caja Proyectada" arranca del saldo real consolidado de las 5 cuentas (convertido a USD) y le suma el cashflow proyectado mes a mes — si en algún mes da negativo, ese mes te quedás sin caja para pagar obra con los supuestos actuales.</div>
           <div class="table-wrap">
@@ -2940,6 +2954,74 @@ function avanceEstimadoSubEnFecha(s, fecha) {
   return Math.min(100, Math.max(0, (transcurridos / totalMeses) * 100));
 }
 
+// Avance REAL acumulado (%) de un subcontrato imputado de sus certificados: el % del último
+// certificado con fecha <= fin del mes dado. Si no hay certificado a esa fecha, devuelve null
+// (mes sin dato real todavía), para distinguir "0% ejecutado" de "no certificado aún".
+function avanceRealSubEnFecha(s, fechaFinMes) {
+  const certs = state.certificaciones
+    .filter(c => c.subcontratoId === s.id && c.fecha && new Date(c.fecha) <= fechaFinMes)
+    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+  if (certs.length === 0) return null;
+  return Math.max(...certs.map(c => c.avanceGlobal || c.avance || 0));
+}
+
+function renderEstructuraMensual() {
+  const tbody = document.getElementById('tabla-estructura-mensual');
+  const tfoot = document.getElementById('tfoot-estructura-mensual');
+  if (!tbody) return;
+  const sub = state.subcontratos.find(s => s.nombre === 'Estructura');
+  if (!sub || !sub.cronogramaProyectado) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-2 text-sm" style="text-align:center;padding:20px">Sin curva de Estructura cargada</td></tr>';
+    tfoot.innerHTML = '';
+    return;
+  }
+  const inicio = sub.inicio ? new Date(sub.inicio) : new Date();
+  const meses = Object.keys(sub.cronogramaProyectado);
+  const mensual = Object.values(sub.cronogramaProyectado);
+  let planAcum = 0, prevReal = 0, totalEgreso = 0, totalCert = 0;
+
+  tbody.innerHTML = meses.map((mesLabel, i) => {
+    const planMes = mensual[i] || 0;
+    planAcum += planMes;
+    const egreso = sub.monto * planMes / 100;        // egreso proyectado del mes (USD)
+    totalEgreso += egreso;
+    // fin de ese mes calendario, para buscar certificado
+    const finMes = new Date(inicio.getFullYear(), inicio.getMonth() + i + 1, 0);
+    const realAcum = avanceRealSubEnFecha(sub, finMes);
+    let certCell = '<span class="text-2">—</span>', desvioCell = '<span class="text-2">—</span>', realCell = '<span class="text-2">—</span>';
+    if (realAcum !== null) {
+      const certMes = sub.monto * Math.max(0, realAcum - prevReal) / 100;
+      totalCert += certMes;
+      prevReal = realAcum;
+      const desv = realAcum - planAcum;
+      realCell = `<span class="font-bold">${realAcum.toFixed(1)}%</span>`;
+      certCell = fmt(certMes);
+      desvioCell = `<span class="${desv < -2 ? 'text-red' : desv < 0 ? 'text-yellow' : 'text-green'}">${desv >= 0 ? '+' : ''}${desv.toFixed(1)} pp</span>`;
+    }
+    return `
+      <tr>
+        <td class="font-bold">${mesLabel}</td>
+        <td>${planAcum.toFixed(1)}%</td>
+        <td>${realCell}</td>
+        <td class="text-red">${fmt(egreso)}</td>
+        <td class="text-green">${certCell}</td>
+        <td>${desvioCell}</td>
+      </tr>
+    `;
+  }).join('');
+
+  tfoot.innerHTML = `
+    <tr>
+      <td class="font-bold">TOTAL contrato</td>
+      <td class="font-bold">100%</td>
+      <td class="font-bold">${(sub.avanceReal || 0).toFixed(1)}%</td>
+      <td class="font-bold text-red">${fmt(totalEgreso)}</td>
+      <td class="font-bold text-green">${fmt(totalCert)}</td>
+      <td></td>
+    </tr>
+  `;
+}
+
 // Caja consolidada real (todas las cuentas convertidas a USD con el TC del proyecto).
 function calcSaldoCajaConsolidadoUSD() {
   const tc = state.proyecto.tc || 1450;
@@ -3002,6 +3084,7 @@ function calcCashflowMensualGlobal() {
 }
 
 function renderCronoMensual() {
+  renderEstructuraMensual();
   const data = calcCashflowMensualGlobal();
   if (!data) {
     document.getElementById('tabla-cashflow-mensual').innerHTML = '<tr><td class="text-2 text-sm" style="text-align:center;padding:20px">Sin subcontratos cargados</td></tr>';
