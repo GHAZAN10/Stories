@@ -44,6 +44,12 @@ def index():
     return resp
 
 
+@app.route("/logo.png")
+def logo():
+    # Si todavía no se subió logo.png, devuelve 404 y el HTML cae al wordmark de texto.
+    return send_from_directory(os.path.dirname(__file__), "logo.png")
+
+
 @app.route("/api/state", methods=["GET"])
 def get_state():
     with _lock, get_conn() as conn:
