@@ -560,9 +560,20 @@
           <div class="card-title mb-4">Estructura — Plan vs. Real (mes a mes)</div>
           <div class="text-xs text-2 mb-4">Egreso proyectado = plan de trabajos real de ZAGA distribuido por mes. Avance real = imputado de los certificados cargados (acumulado a cada mes). El desvío compara, a cada mes con certificado, lo ejecutado real contra lo que marcaba el plan.</div>
           <div class="table-wrap">
-            <table>
+            <table style="min-width:620px">
+              <colgroup>
+                <col style="width:14%"><col style="width:15%"><col style="width:15%">
+                <col style="width:20%"><col style="width:20%"><col style="width:16%">
+              </colgroup>
               <thead>
-                <tr><th>Mes</th><th>% Plan (acum)</th><th>% Real (acum)</th><th>Egreso Proyectado</th><th>Certificado Real</th><th>Desvío</th></tr>
+                <tr>
+                  <th>Mes</th>
+                  <th style="text-align:right">% Plan<br>(acum)</th>
+                  <th style="text-align:right">% Real<br>(acum)</th>
+                  <th style="text-align:right">Egreso<br>Proyectado</th>
+                  <th style="text-align:right">Certificado<br>Real</th>
+                  <th style="text-align:right">Desvío</th>
+                </tr>
               </thead>
               <tbody id="tabla-estructura-mensual"></tbody>
               <tfoot id="tfoot-estructura-mensual"></tfoot>
@@ -1060,6 +1071,48 @@ function normalizeState(s) {
   return s;
 }
 
+// Migraciones idempotentes: corrigen datos que quedaron viejos en el servidor compartido.
+// Cada una se marca con un flag en state._migr para que corra una sola vez. Devuelve true
+// si hizo algún cambio (para que el caller persista al servidor con saveState()).
+function applyMigrations() {
+  if (!state._migr) state._migr = {};
+  let changed = false;
+
+  // estructuraCertsV2: reemplaza la curva/avance viejos de Estructura por el plan real de
+  // ZAGA (18 meses) e imputa los 5 certificados reales (avance real acumulado mes a mes).
+  if (!state._migr.estructuraCertsV2 && Array.isArray(state.subcontratos)) {
+    const sub = state.subcontratos.find(s => s.nombre === 'Estructura');
+    if (sub) {
+      sub.cronogramaProyectado = {
+        'Dic-25':5.94,'Ene-26':3.53,'Feb-26':4.50,'Mar-26':3.04,'Abr-26':5.55,
+        'May-26':5.62,'Jun-26':10.28,'Jul-26':11.82,'Ago-26':8.65,'Sep-26':6.64,
+        'Oct-26':6.26,'Nov-26':8.76,'Dic-26':7.59,'Ene-27':6.02,'Feb-27':2.86,
+        'Mar-27':2.42,'Abr-27':0.20,'May-27':0.33
+      };
+      sub.inicio = '2025-12-01';
+      sub.fin = '2027-05-31';
+      sub.avanceEst = 22.5;
+      sub.avanceReal = 16.3;
+      const acum = [7.60, 11.01, 12.87, 14.37, 16.30];
+      const fechas = ['2025-12-31','2026-01-31','2026-02-28','2026-03-31','2026-04-30'];
+      if (!Array.isArray(state.certificaciones)) state.certificaciones = [];
+      state.certificaciones = state.certificaciones.filter(c => c.subcontratoId !== sub.id);
+      let prev = 0;
+      acum.forEach((pct, i) => {
+        const incr = pct - prev; prev = pct;
+        state.certificaciones.push({
+          id: uid(), subcontratoId: sub.id, fecha: fechas[i],
+          desc: `Certificado ${i+1} — ZAGA (Excavación + Hormigón)`,
+          monto: Math.round(sub.monto * incr / 100), avance: pct, avanceGlobal: pct
+        });
+      });
+      state._migr.estructuraCertsV2 = true;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 function loadState() {
   // Carga rápida desde localStorage (cache local) para no mostrar pantalla en blanco
   // mientras llega la respuesta del servidor compartido.
@@ -1086,13 +1139,20 @@ function loadState() {
     .then(data => {
       if (data.exists && isValidState(data.state)) {
         state = normalizeState(data.state);
-        try { localStorage.setItem('erp-inmobiliario', JSON.stringify(state)); } catch (e) {}
-        if (typeof currentPage !== 'undefined' && currentPage) renderPage(currentPage);
       } else if (data.exists) {
         console.warn('El servidor devolvió un estado incompleto, se ignora.');
       }
+      // Corrige datos viejos del servidor (una sola vez) y, si cambió algo, lo persiste.
+      const changed = applyMigrations();
+      try { localStorage.setItem('erp-inmobiliario', JSON.stringify(state)); } catch (e) {}
+      if (changed) saveState();
+      if (typeof currentPage !== 'undefined' && currentPage) renderPage(currentPage);
+      else renderDashboard();
     })
-    .catch(e => console.warn('No se pudo sincronizar con el servidor (¿estás offline?).', e));
+    .catch(e => {
+      console.warn('No se pudo sincronizar con el servidor (¿estás offline?).', e);
+      if (applyMigrations()) saveState();
+    });
 }
 
 function saveState() {
@@ -3001,11 +3061,11 @@ function renderEstructuraMensual() {
     return `
       <tr>
         <td class="font-bold">${mesLabel}</td>
-        <td>${planAcum.toFixed(1)}%</td>
-        <td>${realCell}</td>
-        <td class="text-red">${fmt(egreso)}</td>
-        <td class="text-green">${certCell}</td>
-        <td>${desvioCell}</td>
+        <td style="text-align:right">${planAcum.toFixed(1)}%</td>
+        <td style="text-align:right">${realCell}</td>
+        <td class="text-red" style="text-align:right">${fmt(egreso)}</td>
+        <td class="text-green" style="text-align:right">${certCell}</td>
+        <td style="text-align:right">${desvioCell}</td>
       </tr>
     `;
   }).join('');
@@ -3013,10 +3073,10 @@ function renderEstructuraMensual() {
   tfoot.innerHTML = `
     <tr>
       <td class="font-bold">TOTAL contrato</td>
-      <td class="font-bold">100%</td>
-      <td class="font-bold">${(sub.avanceReal || 0).toFixed(1)}%</td>
-      <td class="font-bold text-red">${fmt(totalEgreso)}</td>
-      <td class="font-bold text-green">${fmt(totalCert)}</td>
+      <td class="font-bold" style="text-align:right">100%</td>
+      <td class="font-bold" style="text-align:right">${(sub.avanceReal || 0).toFixed(1)}%</td>
+      <td class="font-bold text-red" style="text-align:right">${fmt(totalEgreso)}</td>
+      <td class="font-bold text-green" style="text-align:right">${fmt(totalCert)}</td>
       <td></td>
     </tr>
   `;
