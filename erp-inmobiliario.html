@@ -597,8 +597,8 @@
 
         <div class="card">
           <div class="flex justify-between items-center mb-4">
-            <div class="card-title" style="margin-bottom:0">Avance Estimado por Rubro — Mes a Mes vs. Real</div>
-            <span class="text-xs text-2">Estructura usa su curva contractual real; el resto se proyecta lineal entre inicio y fin de contrato.</span>
+            <div class="card-title" style="margin-bottom:0">Avance Proyectado por Rubro (mes a mes)</div>
+            <span class="text-xs text-2">% acumulado planificado de cada rubro. La columna "Real Hoy" es el avance certificado actual. (El detalle plan vs. real mes a mes de Estructura está en la tabla de arriba.)</span>
           </div>
           <div class="table-wrap">
             <table>
@@ -1080,7 +1080,7 @@ function applyMigrations() {
 
   // estructuraCertsV2: reemplaza la curva/avance viejos de Estructura por el plan real de
   // ZAGA (18 meses) e imputa los 5 certificados reales (avance real acumulado mes a mes).
-  if (!state._migr.estructuraCertsV2 && Array.isArray(state.subcontratos)) {
+  if (!state._migr.estructuraCertsV3 && Array.isArray(state.subcontratos)) {
     const sub = state.subcontratos.find(s => s.nombre === 'Estructura');
     if (sub) {
       sub.cronogramaProyectado = {
@@ -1106,7 +1106,7 @@ function applyMigrations() {
           monto: Math.round(sub.monto * incr / 100), avance: pct, avanceGlobal: pct
         });
       });
-      state._migr.estructuraCertsV2 = true;
+      state._migr.estructuraCertsV3 = true;
       changed = true;
     }
   }
@@ -2982,6 +2982,15 @@ function renderCurvaAvance() {
 
 const MS_DIA = 1000 * 60 * 60 * 24;
 const DIAS_MES = 30.44;
+// Parsea 'YYYY-MM-DD' como fecha LOCAL (no UTC). new Date('2025-12-01') se interpreta como
+// medianoche UTC y en Argentina (UTC-3) se corre a Nov-30, descolocando el mapeo mes a mes.
+function parseFecha(s) {
+  if (s instanceof Date) return s;
+  if (!s) return null;
+  const p = String(s).slice(0, 10).split('-');
+  if (p.length === 3) return new Date(+p[0], +p[1] - 1, +p[2]);
+  return new Date(s);
+}
 function mesesArray(desde, hasta) {
   const meses = [];
   let d = new Date(desde.getFullYear(), desde.getMonth(), 1);
@@ -2997,8 +3006,8 @@ function fmtMes(d) { return d.toLocaleString('es-AR', { month: 'short', year: '2
 // Avance estimado acumulado (%) de un subcontrato en una fecha dada: usa su curva contractual real
 // si existe (cronogramaProyectado), o una proyección lineal entre su inicio y fin de contrato.
 function avanceEstimadoSubEnFecha(s, fecha) {
-  const inicio = s.inicio ? new Date(s.inicio) : null;
-  const fin = s.fin ? new Date(s.fin) : null;
+  const inicio = s.inicio ? parseFecha(s.inicio) : null;
+  const fin = s.fin ? parseFecha(s.fin) : null;
   if (!inicio || !fin) return s.avanceEst || 0;
   if (fecha < inicio) return 0;
   if (fecha > fin) return 100;
@@ -3019,8 +3028,8 @@ function avanceEstimadoSubEnFecha(s, fecha) {
 // (mes sin dato real todavía), para distinguir "0% ejecutado" de "no certificado aún".
 function avanceRealSubEnFecha(s, fechaFinMes) {
   const certs = state.certificaciones
-    .filter(c => c.subcontratoId === s.id && c.fecha && new Date(c.fecha) <= fechaFinMes)
-    .sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+    .filter(c => c.subcontratoId === s.id && c.fecha && parseFecha(c.fecha) <= fechaFinMes)
+    .sort((a, b) => parseFecha(a.fecha) - parseFecha(b.fecha));
   if (certs.length === 0) return null;
   return Math.max(...certs.map(c => c.avanceGlobal || c.avance || 0));
 }
@@ -3035,7 +3044,7 @@ function renderEstructuraMensual() {
     tfoot.innerHTML = '';
     return;
   }
-  const inicio = sub.inicio ? new Date(sub.inicio) : new Date();
+  const inicio = sub.inicio ? parseFecha(sub.inicio) : new Date();
   const meses = Object.keys(sub.cronogramaProyectado);
   const mensual = Object.values(sub.cronogramaProyectado);
   let planAcum = 0, prevReal = 0, totalEgreso = 0, totalCert = 0;
@@ -3099,8 +3108,8 @@ function calcCashflowMensualGlobal() {
   const hoy = new Date();
   if (subs.length === 0) return null;
 
-  const inicios = subs.filter(s => s.inicio).map(s => new Date(s.inicio));
-  const fines = subs.filter(s => s.fin).map(s => new Date(s.fin));
+  const inicios = subs.filter(s => s.inicio).map(s => parseFecha(s.inicio));
+  const fines = subs.filter(s => s.fin).map(s => parseFecha(s.fin));
   const desde = inicios.length ? new Date(Math.min(...inicios)) : hoy;
   const hasta = fines.length ? new Date(Math.max(...fines)) : hoy;
   const meses = mesesArray(desde, hasta);
