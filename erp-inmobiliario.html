@@ -1348,20 +1348,21 @@ function loadSampleData() {
     estructuraSub.notas += ` · Canje obra (unidad 4G, Canje Mayer): ${fmtPct(PCT_CANJE_HORMIGON*100)} pagado en especie (${fmt(pagoEnEspecie)})`;
   }
 
-  // ── CURVA DE AVANCE — Cotización Zaga Lisbona (Excavación + HºAº), SIN platea ──
-  // Total contrato sin platea: $2.723.309.656 ARS (mes base dic-2024). 18 meses, inicio Ene-26.
-  // Hoy (jun-26) la obra va ~2-3 meses atrasada: recién entrando en submuración 2° subsuelo.
+  // ── CURVA DE AVANCE — Plan de trabajos REAL de Zaga Lisbona (hoja "Plan de trabajos") ──
+  // 18 meses, mes 1 = Dic-25 (primer certificado). % mensual del plan contractual real.
+  // A 5 meses (Abr-26) el plan marca 22,5% acumulado; el avance real certificado es 16,3%.
   if (estructuraSub) {
     estructuraSub.cronogramaProyectado = {
-      'Ene-26':11.43,'Feb-26':4.33,'Mar-26':11.34,'Abr-26':5.43,'May-26':9.09,
-      'Jun-26':12.88,'Jul-26':6.05,'Ago-26':4.75,'Sep-26':4.72,'Oct-26':4.74,
-      'Nov-26':4.84,'Dic-26':4.16,'Ene-27':4.18,'Feb-27':4.14,'Mar-27':4.77,
-      'Abr-27':2.17,'May-27':0.61,'Jun-27':0.37,
+      'Dic-25':5.94,'Ene-26':3.53,'Feb-26':4.50,'Mar-26':3.04,'Abr-26':5.55,
+      'May-26':5.62,'Jun-26':10.28,'Jul-26':11.82,'Ago-26':8.65,'Sep-26':6.64,
+      'Oct-26':6.26,'Nov-26':8.76,'Dic-26':7.59,'Ene-27':6.02,'Feb-27':2.86,
+      'Mar-27':2.42,'Abr-27':0.20,'May-27':0.33,
     };
-    estructuraSub.avanceEst = 54.5; // donde DEBERÍA estar hoy (jun-26) según la curva, sin atraso
-    estructuraSub.avanceReal = 27.1; // donde está REALMENTE hoy: terminó base corrida, entrando en submuración 2°SS
-    estructuraSub.fin = '2027-09-30'; // corrida ~2-3 meses por el atraso (antes 2027-06-30)
-    estructuraSub.notas += ' · Avance real jun-26: recién entrando en submuración 2° subsuelo (≈2-3 meses de atraso vs. curva contractual)';
+    estructuraSub.inicio = '2025-12-01';
+    estructuraSub.fin = '2027-05-31';   // 18 meses desde Dic-25
+    estructuraSub.avanceEst = 22.5;     // lo que el plan marcaba al último certificado (Abr-26, mes 5)
+    estructuraSub.avanceReal = 16.3;    // acumulado certificado real (5 certificados ZAGA, último Abr-26)
+    estructuraSub.notas += ' · Plan real ZAGA 18 meses (Dic-25 a May-27). A Abr-26: plan 22,5% vs real certificado 16,3%.';
   }
 
   // ── COSTOS BLANDOS / TIERRA / IMPUESTOS (hoja "Costos", detallado real) ──
