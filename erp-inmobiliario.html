@@ -2936,7 +2936,7 @@ function renderCurvaAvance() {
   card.style.display = 'block';
 
   document.getElementById('curva-avance-container').innerHTML = subsConCurva.map(s => {
-    const meses = Object.keys(s.cronogramaProyectado);
+    const meses = cronogramaOrdenado(s.cronogramaProyectado);
     let acumulado = 0;
     const puntos = meses.map(m => {
       acumulado += s.cronogramaProyectado[m];
@@ -2991,6 +2991,17 @@ function parseFecha(s) {
   if (p.length === 3) return new Date(+p[0], +p[1] - 1, +p[2]);
   return new Date(s);
 }
+// PostgreSQL JSONB NO preserva el orden de claves de un objeto. Como la curva de avance
+// está guardada como objeto {'Dic-25':.., 'Ene-26':..}, al volver del servidor las claves
+// salen desordenadas (alfabéticas). Por eso ordenamos siempre los meses cronológicamente.
+const MES_ABBR = { Ene:0, Feb:1, Mar:2, Abr:3, May:4, Jun:5, Jul:6, Ago:7, Sep:8, Oct:9, Nov:10, Dic:11 };
+function mesLabelADate(lbl) {
+  const [mes, yy] = String(lbl).split('-');
+  return new Date(2000 + (+yy), MES_ABBR[mes] != null ? MES_ABBR[mes] : 0, 1);
+}
+function cronogramaOrdenado(cron) {
+  return Object.keys(cron).sort((a, b) => mesLabelADate(a) - mesLabelADate(b));
+}
 function mesesArray(desde, hasta) {
   const meses = [];
   let d = new Date(desde.getFullYear(), desde.getMonth(), 1);
@@ -3012,9 +3023,9 @@ function avanceEstimadoSubEnFecha(s, fecha) {
   if (fecha < inicio) return 0;
   if (fecha > fin) return 100;
   if (s.cronogramaProyectado) {
-    const valores = Object.values(s.cronogramaProyectado);
+    const orden = cronogramaOrdenado(s.cronogramaProyectado);
     let acc = 0;
-    const cum = valores.map(v => { acc += v; return acc; });
+    const cum = orden.map(k => { acc += s.cronogramaProyectado[k]; return acc; });
     const idx = Math.min(cum.length - 1, Math.max(0, Math.round((fecha - inicio) / (MS_DIA * DIAS_MES))));
     return cum[idx];
   }
@@ -3045,8 +3056,8 @@ function renderEstructuraMensual() {
     return;
   }
   const inicio = sub.inicio ? parseFecha(sub.inicio) : new Date();
-  const meses = Object.keys(sub.cronogramaProyectado);
-  const mensual = Object.values(sub.cronogramaProyectado);
+  const meses = cronogramaOrdenado(sub.cronogramaProyectado);
+  const mensual = meses.map(k => sub.cronogramaProyectado[k]);
   let planAcum = 0, prevReal = 0, totalEgreso = 0, totalCert = 0;
 
   tbody.innerHTML = meses.map((mesLabel, i) => {
