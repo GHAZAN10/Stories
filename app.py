@@ -35,7 +35,13 @@ if DATABASE_URL:
 
 @app.route("/")
 def index():
-    return send_from_directory(os.path.dirname(__file__), "erp-inmobiliario.html")
+    # no-cache: el navegador siempre baja la última versión del HTML tras cada deploy.
+    # Sin esto, quedaba sirviendo HTML viejo cacheado y los arreglos no se veían.
+    resp = send_from_directory(os.path.dirname(__file__), "erp-inmobiliario.html")
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
 
 
 @app.route("/api/state", methods=["GET"])
