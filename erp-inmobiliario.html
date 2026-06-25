@@ -1516,6 +1516,15 @@ function calcKPIs() {
   const avanceReal = certs.length > 0 ? Math.max(...certs.map(c => c.avanceGlobal || 0)) : 0;
   const avanceEstimado = calcAvanceEstimado();
 
+  // Avance real del rubro Estructura (único contratado/en marcha) y avance global PONDERADO
+  // por costo: sum(avanceReal_rubro × monto_rubro) / costo total de obra. El ponderado es
+  // mucho menor porque la estructura es solo una parte del costo total de la obra.
+  const estructuraSubKpi = subcontratos.find(s => s.nombre === 'Estructura');
+  const avanceEstructura = estructuraSubKpi ? (estructuraSubKpi.avanceReal || 0) : 0;
+  const avanceGlobalPonderado = costoSubcontratos > 0
+    ? subcontratos.reduce((s, x) => s + (x.avanceReal || 0) * (x.monto || 0), 0) / costoSubcontratos
+    : 0;
+
   const saldoSubcontratos = costoTotal - pagadoTotal;
 
   // Cocheras + Local (precio fijo, no varían en escenarios de break-even)
@@ -1551,7 +1560,7 @@ function calcKPIs() {
     ingresoVentas, m2Vendido, precioPromedioVendido,
     listaDisponibles, m2Disponible, precioPromedioLista,
     costoTotal, costoSubcontratos, pagadoSubcontratos, costoBlandos, pagadoBlandos, pagadoTotal, saldoSubcontratos,
-    avanceReal, avanceEstimado,
+    avanceReal, avanceEstimado, avanceEstructura, avanceGlobalPonderado,
     pctVendido: totalUnidades > 0 ? (vendidasU.length / totalUnidades * 100) : 0,
     cobrado,
     cocherasVendidas: cocherasVendidas.length, ingresoCocheras, listaCocherasDisponibles, cocherasTotalFijo, valorCanjeCocheras,
@@ -1642,9 +1651,14 @@ function renderDashboard() {
       <div class="kpi-sub">${kpis.vendidas}/${kpis.totalUnidades} unidades</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-label">Avance Real de Obra</div>
-      <div class="kpi-value text-accent">${fmtPct(kpis.avanceReal)}</div>
-      <div class="kpi-sub">Estimado: ${fmtPct(kpis.avanceEstimado)}</div>
+      <div class="kpi-label">Avance Estructura (real)</div>
+      <div class="kpi-value text-accent">${fmtPct(kpis.avanceEstructura)}</div>
+      <div class="kpi-sub">Único rubro contratado · certificados ZAGA</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Avance Global Obra (ponderado)</div>
+      <div class="kpi-value" style="color:var(--accent2)">${fmtPct(kpis.avanceGlobalPonderado)}</div>
+      <div class="kpi-sub">% del costo total de obra ejecutado</div>
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Margen Bruto Proyectado</div>
