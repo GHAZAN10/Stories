@@ -666,6 +666,11 @@
 
       <div class="kpi-grid" id="rent-kpis"></div>
 
+      <div class="card mb-6">
+        <div class="card-title mb-4">Calce de Moneda — USD vs ARS+CAC</div>
+        <div id="calce-container"></div>
+      </div>
+
       <div class="grid-2 mb-6">
         <div class="card">
           <div class="card-title mb-4">Punto de Equilibrio</div>
@@ -827,10 +832,12 @@
       <div class="form-group"><label>DNI/CUIT</label><input type="text" id="v-dni" placeholder=""></div>
       <div class="form-group"><label>Precio de Venta ($)</label><input type="number" id="v-precio" placeholder="0"></div>
       <div class="form-group"><label>Fecha</label><input type="date" id="v-fecha"></div>
-      <div class="form-group"><label>Seña / Reserva ($)</label><input type="number" id="v-sena" placeholder="0"></div>
+      <div class="form-group"><label>Seña / Anticipo (USD)</label><input type="number" id="v-sena" placeholder="0"></div>
       <div class="form-group"><label>Cuotas</label><input type="number" id="v-cuotas" placeholder="Ej: 24" min="1"></div>
       <div class="form-group"><label>Cuotas Cobradas</label><input type="number" id="v-cuotas-cobradas" placeholder="0" min="0"></div>
+      <div class="form-group"><label>% del saldo en USD</label><input type="number" id="v-pct-usd" placeholder="0" min="0" max="100"><span class="text-xs text-2" id="v-pct-hint"></span></div>
     </div>
+    <div class="text-xs text-2" style="margin-top:6px">El anticipo siempre se cuenta como USD. El saldo (precio − anticipo) se parte: el % indicado va en USD fijo y el resto en ARS + CAC.</div>
     <div class="form-group mt-4"><label>Notas</label><textarea id="v-notas" rows="2" style="resize:vertical"></textarea></div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-venta')">Cancelar</button>
@@ -868,6 +875,7 @@
       <div class="form-group"><label>Fecha Inicio</label><input type="date" id="sub-inicio"></div>
       <div class="form-group"><label>Fecha Fin Estimada</label><input type="date" id="sub-fin"></div>
       <div class="form-group"><label>% Avance Estimado</label><input type="number" id="sub-avance-est" placeholder="0" min="0" max="100"></div>
+      <div class="form-group"><label>% en USD (resto ARS+CAC)</label><input type="number" id="sub-pct-usd" placeholder="0" min="0" max="100"></div>
     </div>
     <div class="form-group mt-4"><label>Notas</label><textarea id="sub-notas" rows="2" style="resize:vertical"></textarea></div>
     <div class="modal-footer">
@@ -1007,6 +1015,7 @@
       <div class="form-group"><label>Rubro</label><input type="text" id="cb-rubro" placeholder="Ej: Honorarios escribano"></div>
       <div class="form-group"><label>Total USD</label><input type="number" id="cb-total" placeholder="0"></div>
       <div class="form-group"><label>Pagado USD</label><input type="number" id="cb-pagado" placeholder="0"></div>
+      <div class="form-group"><label>% en USD (resto ARS+CAC)</label><input type="number" id="cb-pct-usd" placeholder="100" min="0" max="100"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-costo-blando')">Cancelar</button>
@@ -1092,6 +1101,17 @@ function normalizeState(s) {
 function applyMigrations() {
   if (!state._migr) state._migr = {};
   let changed = false;
+
+  // calceMonedaV1: setea la moneda por defecto de cada ítem (sin pisar lo que el usuario ya cargó).
+  // Obra (subcontratos) = ARS+CAC (pctUSD 0). Costos blandos/tierra/impuestos = USD (pctUSD 100).
+  // Ventas: saldo en ARS+CAC por defecto (pctSaldoUSD 0); el anticipo/seña siempre cuenta como USD.
+  if (!state._migr.calceMonedaV1) {
+    (state.subcontratos || []).forEach(s => { if (s.pctUSD == null) s.pctUSD = 0; });
+    (state.costosBlandos || []).forEach(c => { if (c.pctUSD == null) c.pctUSD = 100; });
+    (state.ventas || []).forEach(v => { if (v.pctSaldoUSD == null) v.pctSaldoUSD = 0; });
+    state._migr.calceMonedaV1 = true;
+    changed = true;
+  }
 
   // estructuraCertsV2: reemplaza la curva/avance viejos de Estructura por el plan real de
   // ZAGA (18 meses) e imputa los 5 certificados reales (avance real acumulado mes a mes).
@@ -2476,7 +2496,7 @@ function nuevoRegistro(id) {
     const disp = state.unidades.filter(u => u.estadoComercial === 'disponible');
     sel.innerHTML = disp.map(u => `<option value="${u.id}">${u.numero} — ${u.tipo} (${u.m2Total}m²) — ${fmt(u.precio)}</option>`).join('')
       || '<option value="">No hay unidades disponibles</option>';
-    ['v-comprador','v-dni','v-sena','v-cuotas','v-cuotas-cobradas','v-notas'].forEach(f => document.getElementById(f).value = '');
+    ['v-comprador','v-dni','v-sena','v-cuotas','v-cuotas-cobradas','v-notas','v-pct-usd'].forEach(f => document.getElementById(f).value = '');
     document.getElementById('v-estado').value = 'boleto';
     document.getElementById('v-fecha').value = hoy;
     syncPrecioFromUnidad();
@@ -2491,7 +2511,7 @@ function nuevoRegistro(id) {
   if (id === 'modal-subcontrato') {
     document.getElementById('sub-edit-id').value = '';
     document.getElementById('modal-subcontrato-title').textContent = 'Nuevo Subcontrato';
-    ['sub-nombre','sub-contratista','sub-monto','sub-inicio','sub-fin','sub-avance-est','sub-notas'].forEach(f => document.getElementById(f).value = '');
+    ['sub-nombre','sub-contratista','sub-monto','sub-inicio','sub-fin','sub-avance-est','sub-notas','sub-pct-usd'].forEach(f => document.getElementById(f).value = '');
     document.getElementById('sub-rubro').value = 'estructura';
   }
   if (id === 'modal-certificacion') {
@@ -2524,6 +2544,7 @@ function nuevoRegistro(id) {
     document.getElementById('modal-costo-blando-title').textContent = 'Nuevo Costo Blando';
     ['cb-rubro','cb-total','cb-pagado'].forEach(f => document.getElementById(f).value = '');
     document.getElementById('cb-categoria').value = 'd) Blandos';
+    document.getElementById('cb-pct-usd').value = 100; // los costos blandos por defecto son USD
   }
   openModal(id);
 }
@@ -2550,6 +2571,7 @@ function saveVenta() {
     sena: parseFloat(document.getElementById('v-sena').value) || 0,
     cuotas: parseInt(document.getElementById('v-cuotas').value) || 0,
     cuotasCobradas: parseInt(document.getElementById('v-cuotas-cobradas').value) || 0,
+    pctSaldoUSD: Math.min(100, Math.max(0, parseFloat(document.getElementById('v-pct-usd').value) || 0)),
     notas: document.getElementById('v-notas').value,
   };
 
@@ -2603,6 +2625,7 @@ function editVenta(id) {
   document.getElementById('v-sena').value = v.sena || 0;
   document.getElementById('v-cuotas').value = v.cuotas || 0;
   document.getElementById('v-cuotas-cobradas').value = v.cuotasCobradas || 0;
+  document.getElementById('v-pct-usd').value = v.pctSaldoUSD != null ? v.pctSaldoUSD : 0;
   document.getElementById('v-notas').value = v.notas || '';
   openModal('modal-venta');
 }
@@ -2731,6 +2754,7 @@ function saveSubcontrato() {
     inicio: document.getElementById('sub-inicio').value,
     fin: document.getElementById('sub-fin').value,
     avanceEst: parseFloat(document.getElementById('sub-avance-est').value) || 0,
+    pctUSD: Math.min(100, Math.max(0, parseFloat(document.getElementById('sub-pct-usd').value) || 0)),
     avanceReal: 0,
     pagado: 0,
     notas: document.getElementById('sub-notas').value,
@@ -2762,6 +2786,7 @@ function editSubcontrato(id) {
   document.getElementById('sub-inicio').value = s.inicio || '';
   document.getElementById('sub-fin').value = s.fin || '';
   document.getElementById('sub-avance-est').value = s.avanceEst || 0;
+  document.getElementById('sub-pct-usd').value = s.pctUSD != null ? s.pctUSD : 0;
   document.getElementById('sub-notas').value = s.notas || '';
   openModal('modal-subcontrato');
 }
@@ -3504,6 +3529,84 @@ function renderRentabilidad() {
 
   renderEstimadoVsContratado();
   renderCostosBlandos();
+  renderCalceMoneda();
+}
+
+// ============================================================
+// CALCE DE MONEDA (USD vs ARS+CAC) — costos vs ventas
+// ============================================================
+function calcCalceMoneda() {
+  // COSTOS: obra (subcontratos) + costos blandos. pctUSD parte el monto; el resto es ARS+CAC.
+  let costoUSD = 0, costoARS = 0;
+  state.subcontratos.forEach(s => {
+    const m = s.monto || 0; const p = (s.pctUSD || 0) / 100;
+    costoUSD += m * p; costoARS += m * (1 - p);
+  });
+  state.costosBlandos.forEach(c => {
+    const m = c.totalUSD || 0; const p = (c.pctUSD != null ? c.pctUSD : 100) / 100;
+    costoUSD += m * p; costoARS += m * (1 - p);
+  });
+
+  // VENTAS: el anticipo (seña) siempre es USD; el saldo se parte por pctSaldoUSD.
+  let ventaUSD = 0, ventaARS = 0;
+  const ventas = state.ventas.map(getVentaData).filter(v => v.unidad);
+  ventas.forEach(v => {
+    const sena = v.sena || 0;
+    const saldo = Math.max(0, (v.precio || 0) - sena);
+    const p = (v.pctSaldoUSD || 0) / 100;
+    ventaUSD += sena + saldo * p;
+    ventaARS += saldo * (1 - p);
+  });
+
+  const costoTotal = costoUSD + costoARS;
+  const ventaTotal = ventaUSD + ventaARS;
+  return { costoUSD, costoARS, costoTotal, ventaUSD, ventaARS, ventaTotal };
+}
+
+function renderCalceMoneda() {
+  const c = calcCalceMoneda();
+  const pct = (parte, total) => total > 0 ? (parte / total * 100) : 0;
+  // Calce: comparar la composición de ingresos vs costos en ARS+CAC (la moneda "riesgosa").
+  const desfasajeARS = c.ventaARS - c.costoARS;   // ingresos ARS+CAC menos costos ARS+CAC
+  const desfasajeUSD = c.ventaUSD - c.costoUSD;
+
+  const barra = (usd, ars, total) => {
+    const pu = pct(usd, total), pa = pct(ars, total);
+    return `
+      <div style="display:flex;height:26px;border-radius:8px;overflow:hidden;border:1px solid var(--border-soft);margin:6px 0">
+        <div style="width:${pu}%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600">${pu >= 12 ? 'USD ' + pu.toFixed(0) + '%' : ''}</div>
+        <div style="width:${pa}%;background:var(--accent4);display:flex;align-items:center;justify-content:center;color:#1d1d1f;font-size:11px;font-weight:600">${pa >= 12 ? 'ARS+CAC ' + pa.toFixed(0) + '%' : ''}</div>
+      </div>`;
+  };
+
+  document.getElementById('calce-container').innerHTML = `
+    <div class="grid-2 mb-4">
+      <div>
+        <div class="text-sm font-bold mb-1">Costos / Contratos</div>
+        ${barra(c.costoUSD, c.costoARS, c.costoTotal)}
+        <table style="width:100%;font-size:13px">
+          <tr><td class="text-2">USD fijo</td><td class="text-right font-bold">${fmt(c.costoUSD)}</td><td class="text-right text-2">${pct(c.costoUSD,c.costoTotal).toFixed(1)}%</td></tr>
+          <tr><td class="text-2">ARS + CAC</td><td class="text-right font-bold">${fmt(c.costoARS)}</td><td class="text-right text-2">${pct(c.costoARS,c.costoTotal).toFixed(1)}%</td></tr>
+          <tr><td class="font-bold" style="padding-top:6px">Total costos</td><td class="text-right font-bold" style="padding-top:6px">${fmt(c.costoTotal)}</td><td></td></tr>
+        </table>
+      </div>
+      <div>
+        <div class="text-sm font-bold mb-1">Ventas / Ingresos</div>
+        ${barra(c.ventaUSD, c.ventaARS, c.ventaTotal)}
+        <table style="width:100%;font-size:13px">
+          <tr><td class="text-2">USD (anticipos + saldo USD)</td><td class="text-right font-bold">${fmt(c.ventaUSD)}</td><td class="text-right text-2">${pct(c.ventaUSD,c.ventaTotal).toFixed(1)}%</td></tr>
+          <tr><td class="text-2">ARS + CAC</td><td class="text-right font-bold">${fmt(c.ventaARS)}</td><td class="text-right text-2">${pct(c.ventaARS,c.ventaTotal).toFixed(1)}%</td></tr>
+          <tr><td class="font-bold" style="padding-top:6px">Total ventas</td><td class="text-right font-bold" style="padding-top:6px">${fmt(c.ventaTotal)}</td><td></td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="alert ${Math.abs(desfasajeARS) < c.costoARS * 0.15 ? 'alert-success' : 'alert-warning'}">
+      <b>Calce ARS+CAC:</b> tus ingresos en pesos+CAC (${fmt(c.ventaARS)}) ${desfasajeARS >= 0 ? 'cubren' : 'NO cubren'} tus costos en pesos+CAC (${fmt(c.costoARS)}).
+      Diferencia: <b>${desfasajeARS >= 0 ? '+' : ''}${fmt(desfasajeARS)}</b>.
+      ${desfasajeARS < 0 ? 'Te falta cobertura en pesos: si el CAC sube más que el dólar, esa diferencia te golpea.' : 'Estás cubierto del lado pesos+CAC.'}
+      <div class="text-xs mt-2">Lado USD: ingresos ${fmt(c.ventaUSD)} vs costos ${fmt(c.costoUSD)} (dif. ${desfasajeUSD >= 0 ? '+' : ''}${fmt(desfasajeUSD)}).</div>
+    </div>
+  `;
 }
 
 // ============================================================
@@ -3653,6 +3756,7 @@ function saveCostoBlando() {
     rubro: document.getElementById('cb-rubro').value,
     totalUSD: parseFloat(document.getElementById('cb-total').value) || 0,
     pagadoUSD: parseFloat(document.getElementById('cb-pagado').value) || 0,
+    pctUSD: Math.min(100, Math.max(0, parseFloat(document.getElementById('cb-pct-usd').value) || 0)),
   };
   const idx = state.costosBlandos.findIndex(x => x.id === id);
   if (idx >= 0) state.costosBlandos[idx] = c; else state.costosBlandos.push(c);
@@ -3672,6 +3776,7 @@ function editCostoBlando(id) {
   document.getElementById('cb-rubro').value = c.rubro;
   document.getElementById('cb-total').value = c.totalUSD;
   document.getElementById('cb-pagado').value = c.pagadoUSD;
+  document.getElementById('cb-pct-usd').value = c.pctUSD != null ? c.pctUSD : 100;
   openModal('modal-costo-blando');
 }
 
