@@ -1155,6 +1155,41 @@ function applyMigrations() {
     changed = true;
   }
 
+  // calceMonedaV4: marca como cerrados los costos blandos confirmados por el usuario, al mismo
+  // monto que ya estaba cargado como estimado (salvo Comisión inmobiliaria, renegociada a
+  // USD 100.000). Donde no se aclaró moneda, queda sin pctUSD propio y hereda el % del costo
+  // blando original (USD 100% por defecto).
+  if (!state._migr.calceMonedaV4 && Array.isArray(state.costosBlandos)) {
+    if (!state.costosCerrados) state.costosCerrados = [];
+    const cerrar = [
+      { rubro: 'Gestión municipal (Abramzon)' },
+      { rubro: 'Flux paisajismo' },
+      { rubro: 'Almost real viz renders' },
+      { rubro: 'DO y Gerenciamiento (Sambresqui)', pctUSD: 0 },
+      { rubro: 'Cálculo estructural (Calissano)' },
+      { rubro: 'Remolino (marketing)' },
+      { rubro: 'Cámara time lapse', pctUSD: 0 },
+      { rubro: 'Comisión inmobiliaria (ITW)', pctUSD: 100, montoContratadoUSD: 100000 },
+      { rubro: 'Servicios fiduciarios (AGALE)', pctUSD: 100 },
+      { rubro: 'Escribanía (Cernadas)' },
+      { rubro: 'Escribanía (Goldman)' },
+    ];
+    cerrar.forEach(item => {
+      const cb = state.costosBlandos.find(c => c.rubro === item.rubro);
+      if (!cb) return;
+      const yaCerrado = state.costosCerrados.find(x => x.tipo === 'blando' && x.rubro === item.rubro);
+      if (yaCerrado) return;
+      state.costosCerrados.push({
+        id: uid(), tipo: 'blando', rubro: item.rubro,
+        montoContratadoUSD: item.montoContratadoUSD != null ? item.montoContratadoUSD : (cb.totalUSD || 0),
+        pctUSD: item.pctUSD != null ? item.pctUSD : null,
+        fecha: '', notas: 'Migración automática: marcado cerrado a pedido del usuario.',
+      });
+    });
+    state._migr.calceMonedaV4 = true;
+    changed = true;
+  }
+
   // estructuraCertsV2: reemplaza la curva/avance viejos de Estructura por el plan real de
   // ZAGA (18 meses) e imputa los 5 certificados reales (avance real acumulado mes a mes).
   if (!state._migr.estructuraCertsV3 && Array.isArray(state.subcontratos)) {
