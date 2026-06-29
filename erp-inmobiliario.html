@@ -1132,6 +1132,29 @@ function applyMigrations() {
     changed = true;
   }
 
+  // calceMonedaV3: Estructura/hormigón es el único subcontrato firmado desde el inicio del
+  // proyecto, pero como nadie lo había marcado "cerrado" en Estimado vs. Contratado, el calce de
+  // Compras lo excluía del todo — y como los costos blandos sí cuentan siempre (con su % propio),
+  // el resultado se veía artificialmente cerca del 100% USD. Acá se cierra automáticamente con el
+  // split real del contrato: ~26% USD, resto ARS+CAC.
+  if (!state._migr.calceMonedaV3 && Array.isArray(state.subcontratos)) {
+    const sub = state.subcontratos.find(s => s.nombre === 'Estructura');
+    if (sub) {
+      if (sub.pctUSD !== 26) sub.pctUSD = 26;
+      if (!state.costosCerrados) state.costosCerrados = [];
+      const yaCerrado = state.costosCerrados.find(x => x.tipo === 'obra' && x.rubro === 'Estructura');
+      if (!yaCerrado) {
+        state.costosCerrados.push({
+          id: uid(), tipo: 'obra', rubro: 'Estructura',
+          montoContratadoUSD: sub.monto || 0, pctUSD: 26, fecha: '',
+          notas: 'Migración automática: contrato firmado desde el inicio del proyecto, ~26% USD / 74% ARS+CAC.',
+        });
+      }
+    }
+    state._migr.calceMonedaV3 = true;
+    changed = true;
+  }
+
   // estructuraCertsV2: reemplaza la curva/avance viejos de Estructura por el plan real de
   // ZAGA (18 meses) e imputa los 5 certificados reales (avance real acumulado mes a mes).
   if (!state._migr.estructuraCertsV3 && Array.isArray(state.subcontratos)) {
