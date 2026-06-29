@@ -256,6 +256,7 @@
     td, th { border-color: #ddd !important; }
   }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
 <div class="app">
@@ -386,6 +387,17 @@
         </div>
       </div>
 
+      <div class="card mb-6">
+        <div class="card-title mb-4">Planos del Edificio</div>
+        <div id="planos-status" class="mb-4"></div>
+        <div class="flex gap-2 items-center">
+          <input type="file" id="planos-file" accept="application/pdf" style="display:none" onchange="subirPlanos(event)">
+          <button class="btn btn-primary btn-sm" onclick="document.getElementById('planos-file').click()">⬆ Subir PDF con todos los planos</button>
+          <button class="btn btn-secondary btn-sm" id="btn-asignar-planos" style="display:none" onclick="abrirAsignarPlanos()">🗺 Asignar páginas a unidades</button>
+        </div>
+        <div id="planos-upload-progress" class="text-xs text-2 mt-2"></div>
+      </div>
+
       <div class="card">
         <div class="flex justify-between items-center mb-4">
           <div class="card-title" style="margin-bottom:0">Inventario de Unidades</div>
@@ -399,7 +411,7 @@
             <thead>
               <tr>
                 <th>Unidad</th><th>Tipo</th><th>m² Totales</th><th>m² Cubiertos</th>
-                <th>Piso</th><th>Precio Lista</th><th>$/m²</th><th>Estado</th><th>Acciones</th>
+                <th>Piso</th><th>Precio Lista</th><th>$/m²</th><th>Estado</th><th>Plano</th><th>Acciones</th>
               </tr>
             </thead>
             <tbody id="tabla-unidades"></tbody>
@@ -1088,6 +1100,24 @@
     </div>
   </div>
 </div>
+
+<!-- Modal Asignar Planos: una miniatura por página del PDF, con un selector de unidad debajo -->
+<div class="modal-overlay" id="modal-asignar-planos">
+  <div class="modal" style="width:920px">
+    <h3>Asignar páginas a unidades</h3>
+    <div class="text-xs text-2 mb-4">Elegí qué unidad corresponde a cada página del plano. Una página puede asignarse a una sola unidad.</div>
+    <div id="planos-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;max-height:65vh;overflow-y:auto;padding:2px"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('modal-asignar-planos')">Listo</button>
+    </div>
+  </div>
+</div>
+
+<script>
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+</script>
 
 <script>
 // ============================================================
@@ -2385,6 +2415,119 @@ function showDetalleKpi(tipo, param) {
 // ============================================================
 // PROYECTO
 // ============================================================
+// ============================================================
+// PLANOS: subir un PDF único y asignar cada página a su unidad
+// ============================================================
+let planosInfo = { exists: false, filename: null, numPaginas: 0 };
+
+function cargarPlanosInfo() {
+  fetch('/api/planos').then(r => r.json()).then(d => { planosInfo = d; renderPlanosCard(); }).catch(() => {});
+}
+
+function renderPlanosCard() {
+  const status = document.getElementById('planos-status');
+  const btnAsignar = document.getElementById('btn-asignar-planos');
+  if (!status) return;
+  if (planosInfo.exists) {
+    const asignadas = state.unidades.filter(u => u.planoPagina).length;
+    status.innerHTML = `📄 <b>${planosInfo.filename}</b> — ${planosInfo.numPaginas} páginas · ${asignadas}/${state.unidades.length} unidades con plano asignado`;
+    btnAsignar.style.display = '';
+  } else {
+    status.innerHTML = '<span class="text-2 text-sm">Todavía no subiste el PDF con los planos.</span>';
+    btnAsignar.style.display = 'none';
+  }
+}
+
+function subirPlanos(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const progress = document.getElementById('planos-upload-progress');
+  progress.textContent = `Subiendo ${file.name}...`;
+  const fd = new FormData();
+  fd.append('file', file);
+  fetch('/api/planos', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) { progress.textContent = '❌ ' + d.error; return; }
+      progress.textContent = `✅ Listo: ${d.numPaginas} páginas cargadas.`;
+      planosInfo = { exists: true, filename: d.filename, numPaginas: d.numPaginas };
+      renderPlanosCard();
+    })
+    .catch(() => { progress.textContent = '❌ Error subiendo el archivo.'; });
+}
+
+function abrirAsignarPlanos() {
+  openModal('modal-asignar-planos');
+  renderPlanosGrid();
+}
+
+function unidadOpcionesHtml(seleccionadaId) {
+  const ordenadas = state.unidades.slice().sort((a, b) => (a.numero || '').localeCompare(b.numero || ''));
+  return '<option value="">— Sin asignar —</option>' +
+    ordenadas.map(u => `<option value="${u.id}" ${u.id === seleccionadaId ? 'selected' : ''}>${u.numero} (${u.tipo})</option>`).join('');
+}
+
+function renderPlanosGrid() {
+  const grid = document.getElementById('planos-grid');
+  if (!planosInfo.exists || typeof pdfjsLib === 'undefined') {
+    grid.innerHTML = '<div class="text-xs text-2">Subí primero el PDF de planos.</div>';
+    return;
+  }
+  const n = planosInfo.numPaginas;
+  grid.innerHTML = '';
+  for (let i = 1; i <= n; i++) {
+    const asignada = state.unidades.find(u => u.planoPagina === i);
+    const cell = document.createElement('div');
+    cell.style.textAlign = 'center';
+    cell.innerHTML = `
+      <div class="plano-thumb" data-page="${i}" style="border:1px solid var(--border-soft);border-radius:8px;overflow:hidden;background:var(--surface2);min-height:140px;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text2)">Pág. ${i}</div>
+      <select class="plano-select" data-page="${i}" onchange="asignarPlanoPagina(${i}, this.value)" style="width:100%;margin-top:6px;font-size:12px;padding:4px;border-radius:6px;border:1px solid var(--border);background:var(--surface)">
+        ${unidadOpcionesHtml(asignada ? asignada.id : null)}
+      </select>`;
+    grid.appendChild(cell);
+  }
+
+  // Render perezoso: solo se dibuja la miniatura cuando entra en pantalla (174 páginas de una
+  // vez trabaría el navegador). pdf.js carga el PDF una sola vez y se reusa para todas.
+  pdfjsLib.getDocument('/planos.pdf').promise.then(pdfDoc => {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const el = entry.target;
+        const pageNum = parseInt(el.dataset.page, 10);
+        observer.unobserve(el);
+        pdfDoc.getPage(pageNum).then(page => {
+          const viewport = page.getViewport({ scale: 0.35 });
+          const canvas = document.createElement('canvas');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          el.innerHTML = '';
+          el.appendChild(canvas);
+          page.render({ canvasContext: canvas.getContext('2d'), viewport });
+        });
+      });
+    }, { rootMargin: '200px' });
+    document.querySelectorAll('.plano-thumb').forEach(el => observer.observe(el));
+  }).catch(() => { grid.innerHTML = '<div class="text-xs text-2">No se pudo cargar el PDF de planos.</div>'; });
+}
+
+function asignarPlanoPagina(pageNum, unidadId) {
+  state.unidades.forEach(u => { if (u.planoPagina === pageNum) u.planoPagina = null; });
+  if (unidadId) {
+    const u = state.unidades.find(x => x.id === unidadId);
+    if (u) u.planoPagina = pageNum;
+  }
+  saveState();
+  renderPlanosCard();
+  renderUnidades();
+  // Sincroniza los demás selects (por si esta unidad ya tenía otra página asignada).
+  document.querySelectorAll('.plano-select').forEach(sel => {
+    const p = parseInt(sel.dataset.page, 10);
+    const asignada = state.unidades.find(u => u.planoPagina === p);
+    sel.value = asignada ? asignada.id : '';
+  });
+}
+
 function renderProyecto() {
   const p = state.proyecto;
   document.getElementById('proy-nombre').value = p.nombre || '';
@@ -2394,6 +2537,7 @@ function renderProyecto() {
   document.getElementById('proy-presupuesto').value = p.presupuesto || '';
   document.getElementById('proy-moneda').value = p.moneda || 'USD';
   renderUnidades();
+  cargarPlanosInfo();
 }
 
 function saveProyecto() {
@@ -2442,13 +2586,16 @@ function renderUnidades() {
         <td class="font-bold">${fmt(u.precio)}</td>
         <td>${fmt(preciom2)}/m²</td>
         <td><span class="badge ${estadoComercialBadges[estado]}">${estadoComercialLabels[estado] || estado}</span>${u.cliente ? `<div class="text-xs text-2">${u.cliente}</div>` : ''}</td>
+        <td>${u.planoPagina
+          ? `<button class="btn btn-secondary btn-sm" onclick="window.open('/planos.pdf#page=${u.planoPagina}','_blank')" title="Ver plano">👁</button> <a class="btn btn-secondary btn-sm" href="/api/planos/pagina/${u.planoPagina}.pdf" title="Descargar plano">⬇</a>`
+          : '<span class="text-2 text-xs">—</span>'}</td>
         <td>
           <button class="btn btn-secondary btn-sm" onclick="editUnidad('${u.id}')">✏️</button>
           <button class="btn btn-danger btn-sm" onclick="deleteUnidad('${u.id}')">🗑</button>
         </td>
       </tr>
     `;
-  }).join('') || '<tr><td colspan="9" class="text-2 text-sm" style="text-align:center;padding:20px">Sin resultados para esa búsqueda</td></tr>';
+  }).join('') || '<tr><td colspan="10" class="text-2 text-sm" style="text-align:center;padding:20px">Sin resultados para esa búsqueda</td></tr>';
 
   const m2TotalFiltrado = filtradas.reduce((s, u) => s + (u.m2Total || 0), 0);
   const m2CubFiltrado = filtradas.reduce((s, u) => s + (u.m2Cubierto || 0), 0);
@@ -2463,7 +2610,7 @@ function renderUnidades() {
       <td></td>
       <td class="font-bold">${fmt(precioFiltrado)}</td>
       <td class="font-bold">${fmt(preciom2Prom)}/m²</td>
-      <td colspan="2"></td>
+      <td colspan="3"></td>
     </tr>
   `;
 
