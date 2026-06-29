@@ -1936,16 +1936,17 @@ function renderDashboard() {
 
   // Alertas
   const alertas = [];
-  if (kpis.avanceEstimado - kpis.avanceReal > 10) alertas.push({ tipo: 'warning', msg: `⚠️ Obra retrasada: ${fmtPct(kpis.avanceEstimado - kpis.avanceReal)} de desvío respecto al cronograma` });
-  if (kpis.pctVendido < 30) alertas.push({ tipo: 'danger', msg: `🔴 Ventas bajas: solo ${fmtPct(kpis.pctVendido)} vendido. Revisar estrategia comercial.` });
-  if (kpis.margenPct < 15) alertas.push({ tipo: 'danger', msg: `🔴 Margen crítico: ${fmtPct(kpis.margenPct)}. Costo supera ingresos proyectados.` });
-  if (mesSinCaja) alertas.push({ tipo: 'danger', msg: `🔴 Caja proyectada en negativo a partir de ${fmtMes(mesSinCaja)}: con el cashflow proyectado actual, la caja consolidada (${fmt(cajaConsolidadaUSD)} hoy) no alcanza para cubrir la obra desde ese mes. Ver Cronograma → Mes a Mes.` });
+  if (kpis.avanceEstimado - kpis.avanceReal > 10) alertas.push({ tipo: 'warning', msg: `⚠️ Obra retrasada: ${fmtPct(kpis.avanceEstimado - kpis.avanceReal)} de desvío respecto al cronograma`, link: 'avanceGlobal' });
+  if (kpis.pctVendido < 30) alertas.push({ tipo: 'danger', msg: `🔴 Ventas bajas: solo ${fmtPct(kpis.pctVendido)} vendido. Revisar estrategia comercial.`, link: 'pctVendido' });
+  if (kpis.margenPct < 15) alertas.push({ tipo: 'danger', msg: `🔴 Margen crítico: ${fmtPct(kpis.margenPct)}. Costo supera ingresos proyectados.`, link: 'margen' });
+  if (mesSinCaja) alertas.push({ tipo: 'danger', msg: `🔴 Caja proyectada en negativo a partir de ${fmtMes(mesSinCaja)}: con el cashflow proyectado actual, la caja consolidada (${fmt(cajaConsolidadaUSD)} hoy) no alcanza para cubrir la obra desde ese mes. Ver Cronograma → Mes a Mes.`, link: 'cajaConsolidada' });
   const cajaTotalNegativa = Object.keys(cajaInfo).find(c => calcSaldoCaja(c) < 0);
-  if (cajaTotalNegativa) alertas.push({ tipo: 'danger', msg: `🔴 Cuenta ${cajaInfo[cajaTotalNegativa].nombre} en negativo` });
+  if (cajaTotalNegativa) alertas.push({ tipo: 'danger', msg: `🔴 Cuenta ${cajaInfo[cajaTotalNegativa].nombre} en negativo`, link: 'cajaConsolidada' });
   const cocheraSinPrecio = state.cocheras.find(c => c.notas && c.notas.includes('Confirmar'));
-  if (cocheraSinPrecio) alertas.push({ tipo: 'warning', msg: `⚠️ Cochera ${cocheraSinPrecio.numero}: ${cocheraSinPrecio.notas}` });
+  if (cocheraSinPrecio) alertas.push({ tipo: 'warning', msg: `⚠️ Cochera ${cocheraSinPrecio.numero}: ${cocheraSinPrecio.notas}`, link: 'cocherasLocal' });
   if (alertas.length === 0) alertas.push({ tipo: 'success', msg: '✅ Todos los indicadores dentro de parámetros normales.' });
-  document.getElementById('alertas-container').innerHTML = alertas.map(a => `<div class="alert alert-${a.tipo}">${a.msg}</div>`).join('');
+  document.getElementById('alertas-container').innerHTML = alertas.map(a =>
+    `<div class="alert alert-${a.tipo}"${a.link ? ` style="cursor:pointer" onclick="showDetalleKpi('${a.link}')" title="Ver detalle"` : ''}>${a.msg}</div>`).join('');
 
   // Subcontratos críticos (con mayor desvío)
   const criticos = state.subcontratos
@@ -1954,9 +1955,9 @@ function renderDashboard() {
     .slice(0, 3);
   document.getElementById('subcontratos-criticos').innerHTML = criticos.length === 0 ? '<p class="text-2 text-sm">Sin subcontratos.</p>' :
     criticos.map(s => `
-      <div class="flex justify-between items-center" style="padding:10px 0; border-bottom:1px solid var(--border)">
+      <div class="flex justify-between items-center" style="padding:10px 0; border-bottom:1px solid var(--border);cursor:pointer" onclick="showDetalleKpi('subcontratoDetalle','${s.nombre}')" title="Ver detalle">
         <div>
-          <div class="text-sm font-bold">${s.nombre}</div>
+          <div class="text-sm font-bold">${s.nombre} <span class="zoom-hint" style="opacity:.5;font-size:11px">🔍</span></div>
           <div class="text-xs text-2">${s.contratista}</div>
         </div>
         <div class="text-right">
@@ -2001,6 +2002,9 @@ function renderCashflowChart() {
   const h = 180;
 
   const chart = document.getElementById('cf-chart');
+  chart.style.cursor = 'pointer';
+  chart.title = 'Ver detalle mes a mes';
+  chart.onclick = () => showDetalleKpi('cashflow6m');
   chart.innerHTML = datos.map(d => {
     const hI = maxVal > 0 ? (d.ingreso / maxVal) * h : 2;
     const hE = maxVal > 0 ? (d.egreso / maxVal) * h : 2;
@@ -2020,10 +2024,10 @@ function renderCashflowChart() {
 }
 
 function renderStockBreakdown(kpis) {
-  const filaCant = (label, valor, total, color) => `
-    <div style="margin-bottom:10px">
+  const filaCant = (label, valor, total, color, tipoKpi, param) => `
+    <div style="margin-bottom:10px;cursor:pointer" onclick="showDetalleKpi('${tipoKpi}'${param ? `,'${param}'` : ''})" title="Ver detalle">
       <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px">
-        <span class="text-2">${label}</span>
+        <span class="text-2">${label} <span class="zoom-hint" style="opacity:.5">🔍</span></span>
         <span class="font-bold">${valor} <span class="text-2" style="font-weight:normal">(${total > 0 ? fmtPct(valor / total * 100) : '0%'})</span></span>
       </div>
       <div style="background:var(--surface2);border-radius:4px;height:8px;overflow:hidden">
@@ -2032,10 +2036,10 @@ function renderStockBreakdown(kpis) {
     </div>
   `;
 
-  const filaM2 = (label, valor, total, color) => `
-    <div style="margin-bottom:10px">
+  const filaM2 = (label, valor, total, color, tipoKpi, param) => `
+    <div style="margin-bottom:10px;cursor:pointer" onclick="showDetalleKpi('${tipoKpi}'${param ? `,'${param}'` : ''})" title="Ver detalle">
       <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px">
-        <span class="text-2">${label}</span>
+        <span class="text-2">${label} <span class="zoom-hint" style="opacity:.5">🔍</span></span>
         <span class="font-bold">${fmtNum(valor)} m² <span class="text-2" style="font-weight:normal">(${total > 0 ? fmtPct(valor / total * 100) : '0%'})</span></span>
       </div>
       <div style="background:var(--surface2);border-radius:4px;height:8px;overflow:hidden">
@@ -2048,23 +2052,23 @@ function renderStockBreakdown(kpis) {
 
   document.getElementById('stock-unidades').innerHTML = `
     <div class="text-xs text-2 mb-2">Por cantidad — ${kpis.totalUnidades} unidades residenciales en total</div>
-    ${filaCant('Vendidas', kpis.vendidas, kpis.totalUnidades, 'var(--green)')}
-    ${filaCant('Canjeadas', kpis.canje, kpis.totalUnidades, 'var(--accent4)')}
-    ${filaCant('Disponibles', kpis.disponibles, kpis.totalUnidades, 'var(--accent)')}
-    ${(kpis.bloqueadas + kpis.reservadas) > 0 ? filaCant('Bloqueadas/Reservadas', kpis.bloqueadas + kpis.reservadas, kpis.totalUnidades, 'var(--red)') : ''}
+    ${filaCant('Vendidas', kpis.vendidas, kpis.totalUnidades, 'var(--green)', 'pctVendido')}
+    ${filaCant('Canjeadas', kpis.canje, kpis.totalUnidades, 'var(--accent4)', 'valorCanjeado')}
+    ${filaCant('Disponibles', kpis.disponibles, kpis.totalUnidades, 'var(--accent)', 'precioLista')}
+    ${(kpis.bloqueadas + kpis.reservadas) > 0 ? filaCant('Bloqueadas/Reservadas', kpis.bloqueadas + kpis.reservadas, kpis.totalUnidades, 'var(--red)', 'unidadesBloqueadas') : ''}
     <div class="text-xs text-2 mb-2 mt-4">Por m² — ${fmtNum(kpis.totalM2)} m² totales</div>
-    ${filaM2('Vendido', kpis.m2Vendido, kpis.totalM2, 'var(--green)')}
-    ${filaM2('Canjeado', kpis.m2Canjeado, kpis.totalM2, 'var(--accent4)')}
-    ${filaM2('Disponible', kpis.m2Disponible, kpis.totalM2, 'var(--accent)')}
-    ${m2OtrasU > 0.5 ? filaM2('Bloqueado/Reservado', m2OtrasU, kpis.totalM2, 'var(--red)') : ''}
+    ${filaM2('Vendido', kpis.m2Vendido, kpis.totalM2, 'var(--green)', 'pctVendido')}
+    ${filaM2('Canjeado', kpis.m2Canjeado, kpis.totalM2, 'var(--accent4)', 'valorCanjeado')}
+    ${filaM2('Disponible', kpis.m2Disponible, kpis.totalM2, 'var(--accent)', 'precioLista')}
+    ${m2OtrasU > 0.5 ? filaM2('Bloqueado/Reservado', m2OtrasU, kpis.totalM2, 'var(--red)', 'unidadesBloqueadas') : ''}
   `;
 
   document.getElementById('stock-cocheras').innerHTML = `
     <div class="text-xs text-2 mb-2">${kpis.cocherasTotal} cocheras + local en total</div>
-    ${filaCant('Vendidas', kpis.cocherasVendidas, kpis.cocherasTotal, 'var(--green)')}
-    ${filaCant('Canjeadas', kpis.cocherasCanje, kpis.cocherasTotal, 'var(--accent4)')}
-    ${kpis.cocherasOpcion > 0 ? filaCant('Opción de compra', kpis.cocherasOpcion, kpis.cocherasTotal, '#a78bfa') : ''}
-    ${filaCant('Disponibles / en venta', kpis.cocherasEnVenta, kpis.cocherasTotal, 'var(--accent)')}
+    ${filaCant('Vendidas', kpis.cocherasVendidas, kpis.cocherasTotal, 'var(--green)', 'cocherasLocal')}
+    ${filaCant('Canjeadas', kpis.cocherasCanje, kpis.cocherasTotal, 'var(--accent4)', 'cocherasLocal')}
+    ${kpis.cocherasOpcion > 0 ? filaCant('Opción de compra', kpis.cocherasOpcion, kpis.cocherasTotal, '#a78bfa', 'cocherasLocal') : ''}
+    ${filaCant('Disponibles / en venta', kpis.cocherasEnVenta, kpis.cocherasTotal, 'var(--accent)', 'cocherasLocal')}
   `;
 }
 
@@ -2090,9 +2094,9 @@ function renderVentasChart(kpis) {
     const pct = data.total > 0 ? (data.vendidas / data.total * 100) : 0;
     const color = colors[tipo] || '#9096b0';
     return `
-      <div style="margin-bottom:12px">
+      <div style="margin-bottom:12px;cursor:pointer" onclick="showDetalleKpi('ventasPorTipo','${tipo}')" title="Ver unidades">
         <div class="flex justify-between items-center mb-1">
-          <span class="text-sm">${tipo}</span>
+          <span class="text-sm">${tipo} <span class="zoom-hint" style="opacity:.5">🔍</span></span>
           <span class="text-xs text-2">${data.vendidas}/${data.total} (${fmtPct(pct)})</span>
         </div>
         <div class="progress-bar">
@@ -2135,8 +2139,73 @@ function dkBarraMoneda(usd, ars) {
     </div>`;
 }
 
-function showDetalleKpi(tipo) {
+function showDetalleKpi(tipo, param) {
   const kpis = calcKPIs();
+
+  if (tipo === 'unidadesBloqueadas') {
+    const rows = state.unidades.filter(u => u.estadoComercial === 'bloqueado' || u.estadoComercial === 'reservado')
+      .map(u => [u.numero, u.tipo, fmtNum(u.m2Total), u.estadoComercial === 'bloqueado' ? '<span class="badge badge-gray">Bloqueado</span>' : '<span class="badge badge-blue">Reservado</span>', fmt(u.precio)]);
+    abrirDetalleKpi('Unidades bloqueadas / reservadas', '', dkTabla(['Unidad', 'Tipo', 'm²', 'Estado', 'Precio'], rows));
+    return;
+  }
+
+  if (tipo === 'cashflow6m') {
+    const months = [];
+    const hoy = new Date();
+    for (let i = 0; i < 6; i++) months.push(new Date(hoy.getFullYear(), hoy.getMonth() + i, 1));
+    const ventasActivas = state.ventas.filter(v => v.estado === 'boleto' || v.estado === 'escritura');
+    const ingresosPorMes = months.map(() => 0);
+    ventasActivas.forEach(v => {
+      const cuotaValor = v.cuotas > 0 ? (v.precio - (v.sena || 0)) / v.cuotas : 0;
+      const pendientes = Math.max(0, (v.cuotas || 0) - (v.cuotasCobradas || 0));
+      for (let i = 0; i < Math.min(6, pendientes); i++) ingresosPorMes[i] += cuotaValor;
+    });
+    const egresosPorMes = months.map(() => 0);
+    state.subcontratos.forEach(s => {
+      const saldo = (s.monto || 0) - (s.pagado || 0);
+      if (saldo <= 0) return;
+      const fin = s.fin ? new Date(s.fin) : null;
+      const mesesRestantes = fin ? Math.max(1, Math.round((fin - hoy) / (1000 * 60 * 60 * 24 * 30.44))) : 12;
+      const cuotaMensual = saldo / mesesRestantes;
+      for (let i = 0; i < Math.min(6, mesesRestantes); i++) egresosPorMes[i] += cuotaMensual;
+    });
+    const rows = months.map((d, i) => [fmtMes(d), fmt(ingresosPorMes[i]), fmt(egresosPorMes[i]), fmt(ingresosPorMes[i] - egresosPorMes[i])]);
+    const totIngreso = ingresosPorMes.reduce((s, x) => s + x, 0), totEgreso = egresosPorMes.reduce((s, x) => s + x, 0);
+    abrirDetalleKpi('Cashflow Proyectado (próx. 6 meses)', 'Ingresos = cuotas pendientes de ventas firmes. Egresos = saldo de cada subcontrato distribuido linealmente hasta su fin.',
+      dkTabla(['Mes', 'Ingreso', 'Egreso', 'Neto'], rows, ['Total', fmt(totIngreso), fmt(totEgreso), fmt(totIngreso - totEgreso)]));
+    return;
+  }
+
+  if (tipo === 'ventasPorTipo') {
+    const unidadesTipo = state.unidades.filter(u => u.tipo === param && !(u.estadoComercial || '').startsWith('canje_'));
+    const rows = unidadesTipo.map(u => {
+      const venta = state.ventas.find(v => v.unidadId === u.id);
+      return [u.numero, u.estadoComercial, venta ? (venta.comprador || '—') : '—', fmt(u.precio)];
+    });
+    const vendidas = unidadesTipo.filter(u => u.estadoComercial === 'vendido').length;
+    abrirDetalleKpi(`Ventas — ${param}`, `${vendidas}/${unidadesTipo.length} vendidas (no incluye canjeadas)`,
+      dkTabla(['Unidad', 'Estado', 'Comprador', 'Precio'], rows));
+    return;
+  }
+
+  if (tipo === 'subcontratoDetalle') {
+    const s = state.subcontratos.find(x => x.nombre === param);
+    if (!s) return;
+    const cc = (state.costosCerrados || []).find(x => x.tipo === 'obra' && x.rubro === s.nombre);
+    const monto = cc ? cc.montoContratadoUSD : (s.monto || 0);
+    const html = `
+      <div class="detalle-row"><span>Estado</span><span class="font-bold">${cc ? '<span class="badge badge-green">Cerrado</span>' : '<span class="badge badge-gray">Estimado</span>'}</span></div>
+      <div class="detalle-row"><span>Contratista</span><span class="font-bold">${s.contratista || '—'}</span></div>
+      <div class="detalle-row"><span>Monto</span><span class="font-bold">${fmt(monto)}</span></div>
+      <div class="detalle-row"><span>Pagado</span><span class="font-bold">${fmt(s.pagado || 0)}</span></div>
+      <div class="detalle-row"><span>Saldo</span><span class="font-bold">${fmt(monto - (s.pagado || 0))}</span></div>
+      <div class="detalle-row"><span>Avance estimado (plan)</span><span class="font-bold">${fmtPct(s.avanceEst || 0)}</span></div>
+      <div class="detalle-row"><span>Avance real</span><span class="font-bold text-accent">${fmtPct(s.avanceReal || 0)}</span></div>
+      <div class="text-xs text-2 mt-2">${s.notas || ''}</div>`;
+    abrirDetalleKpi(s.nombre, `${s.inicio || '?'} → ${s.fin || '?'}`, html);
+    return;
+  }
+
 
   if (tipo === 'precioVendido' || tipo === 'pctVendido') {
     const vendidas = state.unidades.filter(u => u.estadoComercial === 'vendido');
