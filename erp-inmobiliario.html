@@ -991,6 +991,7 @@
         <select id="evc-rubro"></select>
       </div>
       <div class="form-group"><label>Monto Contratado (USD)</label><input type="number" id="evc-monto" placeholder="0"></div>
+      <div class="form-group"><label>% en USD (resto ARS+CAC)</label><input type="number" id="evc-pct-usd" placeholder="0" min="0" max="100"></div>
       <div class="form-group"><label>Fecha de cierre</label><input type="date" id="evc-fecha"></div>
     </div>
     <div class="form-group mt-4"><label>Notas</label><textarea id="evc-notas" rows="2" style="resize:vertical" placeholder="Ej: contrato firmado con..."></textarea></div>
@@ -1744,6 +1745,7 @@ function calcSaldoCaja(caja) {
 function renderDashboard() {
   const kpis = calcKPIs();
   const moneda = state.proyecto.moneda || 'USD';
+  const calce = calcCalceMoneda();
 
   // Salud de caja: cruza el cashflow proyectado con el saldo real consolidado de las 5 cuentas.
   const cashflowGlobal = calcCashflowMensualGlobal();
@@ -1828,6 +1830,16 @@ function renderDashboard() {
       <div class="kpi-label">Caja Consolidada Real</div>
       <div class="kpi-value ${cajaConsolidadaUSD >= 0 ? 'text-green' : 'text-red'}">${fmt(cajaConsolidadaUSD)}</div>
       <div class="kpi-sub">${mesSinCaja ? `<span class="text-red">⚠ sin caja desde ${fmtMes(mesSinCaja)}</span>` : 'cashflow proyectado no muestra déficit'}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Ventas — USD vs ARS+CAC</div>
+      <div class="kpi-value text-accent">${fmtPct(calce.ventaTotal > 0 ? calce.ventaUSD/calce.ventaTotal*100 : 0)} <span class="text-2" style="font-size:15px">USD</span></div>
+      <div class="kpi-sub">${fmtPct(calce.ventaTotal > 0 ? calce.ventaARS/calce.ventaTotal*100 : 0)} ARS+CAC · sobre ${fmt(calce.ventaTotal)} vendido</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Compras — USD vs ARS+CAC</div>
+      <div class="kpi-value" style="color:var(--accent4)">${calce.costoTotal > 0 ? fmtPct(calce.costoUSD/calce.costoTotal*100) + ' <span class="text-2" style="font-size:15px">USD</span>' : '—'}</div>
+      <div class="kpi-sub">${calce.costoTotal > 0 ? fmtPct(calce.costoARS/calce.costoTotal*100) + ' ARS+CAC · sobre ' + fmt(calce.costoTotal) + ' contratado' : 'marcá contratos cerrados'}</div>
     </div>
   `;
 
@@ -2561,6 +2573,7 @@ function nuevoRegistro(id) {
     document.getElementById('evc-tipo').value = 'blando';
     updateEvcRubroSelect();
     document.getElementById('evc-monto').value = '';
+    document.getElementById('evc-pct-usd').value = '';
     document.getElementById('evc-fecha').value = hoy;
     document.getElementById('evc-notas').value = '';
   }
@@ -3567,7 +3580,9 @@ function calcCalceMoneda() {
   (state.costosCerrados || []).forEach(cc => {
     const m = cc.montoContratadoUSD || 0;
     let pct;
-    if (cc.tipo === 'obra') {
+    if (cc.pctUSD != null) {
+      pct = cc.pctUSD;                                         // moneda propia del contrato cerrado
+    } else if (cc.tipo === 'obra') {
       const sub = state.subcontratos.find(s => s.nombre === cc.rubro);
       pct = sub && sub.pctUSD != null ? sub.pctUSD : 0;       // obra: por defecto ARS+CAC
     } else {
@@ -3691,6 +3706,7 @@ function saveCostoCerrado() {
     tipo: document.getElementById('evc-tipo').value,
     rubro: document.getElementById('evc-rubro').value,
     montoContratadoUSD: parseFloat(document.getElementById('evc-monto').value) || 0,
+    pctUSD: Math.min(100, Math.max(0, parseFloat(document.getElementById('evc-pct-usd').value) || 0)),
     fecha: document.getElementById('evc-fecha').value,
     notas: document.getElementById('evc-notas').value,
   };
@@ -3706,6 +3722,7 @@ function editCostoCerrado(id) {
   updateEvcRubroSelect();
   document.getElementById('evc-rubro').value = c.rubro;
   document.getElementById('evc-monto').value = c.montoContratadoUSD;
+  document.getElementById('evc-pct-usd').value = c.pctUSD != null ? c.pctUSD : '';
   document.getElementById('evc-fecha').value = c.fecha;
   document.getElementById('evc-notas').value = c.notas || '';
   openModal('modal-costo-cerrado');
