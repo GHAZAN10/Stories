@@ -3536,14 +3536,20 @@ function renderRentabilidad() {
 // CALCE DE MONEDA (USD vs ARS+CAC) — costos vs ventas
 // ============================================================
 function calcCalceMoneda() {
-  // COSTOS: obra (subcontratos) + costos blandos. pctUSD parte el monto; el resto es ARS+CAC.
+  // COSTOS: SOLO lo marcado como cerrado/contratado en "Estimado vs. Contratado", con su monto
+  // contratado real. El % de moneda se toma del rubro correspondiente (subcontrato o costo blando).
   let costoUSD = 0, costoARS = 0;
-  state.subcontratos.forEach(s => {
-    const m = s.monto || 0; const p = (s.pctUSD || 0) / 100;
-    costoUSD += m * p; costoARS += m * (1 - p);
-  });
-  state.costosBlandos.forEach(c => {
-    const m = c.totalUSD || 0; const p = (c.pctUSD != null ? c.pctUSD : 100) / 100;
+  (state.costosCerrados || []).forEach(cc => {
+    const m = cc.montoContratadoUSD || 0;
+    let pct;
+    if (cc.tipo === 'obra') {
+      const sub = state.subcontratos.find(s => s.nombre === cc.rubro);
+      pct = sub && sub.pctUSD != null ? sub.pctUSD : 0;       // obra: por defecto ARS+CAC
+    } else {
+      const cb = state.costosBlandos.find(c => c.rubro === cc.rubro);
+      pct = cb && cb.pctUSD != null ? cb.pctUSD : 100;        // blando: por defecto USD
+    }
+    const p = pct / 100;
     costoUSD += m * p; costoARS += m * (1 - p);
   });
 
@@ -3566,6 +3572,11 @@ function calcCalceMoneda() {
 function renderCalceMoneda() {
   const c = calcCalceMoneda();
   const pct = (parte, total) => total > 0 ? (parte / total * 100) : 0;
+  if (c.costoTotal === 0) {
+    document.getElementById('calce-container').innerHTML = `
+      <div class="alert alert-warning">Todavía no hay contratos marcados como cerrados. El calce de costos usa solo lo <b>contratado</b>: marcá los contratos cerrados (botón "+ Marcar costo cerrado" en Estimado vs. Contratado) y aparecerán acá con su moneda.</div>`;
+    return;
+  }
   // Calce: comparar la composición de ingresos vs costos en ARS+CAC (la moneda "riesgosa").
   const desfasajeARS = c.ventaARS - c.costoARS;   // ingresos ARS+CAC menos costos ARS+CAC
   const desfasajeUSD = c.ventaUSD - c.costoUSD;
