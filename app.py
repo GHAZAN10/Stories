@@ -123,10 +123,11 @@ def serve_plano_pagina(n):
     writer.add_page(reader.pages[n - 1])
     out = io.BytesIO()
     writer.write(out)
+    disposition = "attachment" if request.args.get("dl") else "inline"
     return Response(
         out.getvalue(),
         mimetype="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=plano-pagina-{n}.pdf"},
+        headers={"Content-Disposition": f"{disposition}; filename=plano-pagina-{n}.pdf"},
     )
 
 

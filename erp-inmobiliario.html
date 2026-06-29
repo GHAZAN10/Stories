@@ -387,12 +387,6 @@
         </div>
       </div>
 
-      <div class="card mb-6">
-        <input type="file" id="planos-file" accept="application/pdf" style="display:none" onchange="subirPlanos(event)">
-        <div id="planos-status"></div>
-        <div id="planos-upload-progress" class="text-xs text-2 mt-2"></div>
-      </div>
-
       <div class="card">
         <div class="flex justify-between items-center mb-4">
           <div class="card-title" style="margin-bottom:0">Inventario de Unidades</div>
@@ -414,6 +408,12 @@
           </table>
         </div>
         <div class="mt-4 flex gap-4 text-sm text-2" id="unidades-resumen"></div>
+      </div>
+
+      <div class="card mt-6" style="opacity:.85">
+        <input type="file" id="planos-file" accept="application/pdf" style="display:none" onchange="subirPlanos(event)">
+        <div id="planos-status"></div>
+        <div id="planos-upload-progress" class="text-xs text-2 mt-2"></div>
       </div>
     </div>
 
@@ -2590,7 +2590,7 @@ function renderUnidades() {
         <td>${fmt(preciom2)}/m²</td>
         <td><span class="badge ${estadoComercialBadges[estado]}">${estadoComercialLabels[estado] || estado}</span>${u.cliente ? `<div class="text-xs text-2">${u.cliente}</div>` : ''}</td>
         <td>${u.planoPagina
-          ? `<button class="btn btn-secondary btn-sm" onclick="window.open('/planos.pdf#page=${u.planoPagina}','_blank')" title="Ver plano">👁</button> <a class="btn btn-secondary btn-sm" href="/api/planos/pagina/${u.planoPagina}.pdf" title="Descargar plano">⬇</a>`
+          ? `<a class="btn btn-secondary btn-sm" href="/api/planos/pagina/${u.planoPagina}.pdf" target="_blank" title="Ver plano">👁</a> <a class="btn btn-secondary btn-sm" href="/api/planos/pagina/${u.planoPagina}.pdf?dl=1" title="Descargar plano">⬇</a>`
           : '<span class="text-2 text-xs">—</span>'}</td>
         <td>
           <button class="btn btn-secondary btn-sm" onclick="editUnidad('${u.id}')">✏️</button>
