@@ -388,13 +388,8 @@
       </div>
 
       <div class="card mb-6">
-        <div class="card-title mb-4">Planos del Edificio</div>
-        <div id="planos-status" class="mb-4"></div>
-        <div class="flex gap-2 items-center">
-          <input type="file" id="planos-file" accept="application/pdf" style="display:none" onchange="subirPlanos(event)">
-          <button class="btn btn-primary btn-sm" onclick="document.getElementById('planos-file').click()">⬆ Subir PDF con todos los planos</button>
-          <button class="btn btn-secondary btn-sm" id="btn-asignar-planos" style="display:none" onclick="abrirAsignarPlanos()">🗺 Asignar páginas a unidades</button>
-        </div>
+        <input type="file" id="planos-file" accept="application/pdf" style="display:none" onchange="subirPlanos(event)">
+        <div id="planos-status"></div>
         <div id="planos-upload-progress" class="text-xs text-2 mt-2"></div>
       </div>
 
@@ -2426,15 +2421,23 @@ function cargarPlanosInfo() {
 
 function renderPlanosCard() {
   const status = document.getElementById('planos-status');
-  const btnAsignar = document.getElementById('btn-asignar-planos');
   if (!status) return;
   if (planosInfo.exists) {
     const asignadas = state.unidades.filter(u => u.planoPagina).length;
-    status.innerHTML = `📄 <b>${planosInfo.filename}</b> — ${planosInfo.numPaginas} páginas · ${asignadas}/${state.unidades.length} unidades con plano asignado`;
-    btnAsignar.style.display = '';
+    status.innerHTML = `
+      <div class="flex justify-between items-center text-sm">
+        <span class="text-2">📄 <b style="color:var(--text)">${planosInfo.filename}</b> — ${planosInfo.numPaginas} páginas · ${asignadas}/${state.unidades.length} unidades con plano asignado</span>
+        <span class="text-xs">
+          <a href="#" onclick="abrirAsignarPlanos();return false">Reasignar páginas</a> ·
+          <a href="#" onclick="document.getElementById('planos-file').click();return false">Reemplazar PDF</a>
+        </span>
+      </div>`;
   } else {
-    status.innerHTML = '<span class="text-2 text-sm">Todavía no subiste el PDF con los planos.</span>';
-    btnAsignar.style.display = 'none';
+    status.innerHTML = `
+      <div class="flex justify-between items-center">
+        <span class="text-2 text-sm">Planos del edificio: todavía no subiste el PDF.</span>
+        <button class="btn btn-primary btn-sm" onclick="document.getElementById('planos-file').click()">⬆ Subir PDF con todos los planos</button>
+      </div>`;
   }
 }
 
