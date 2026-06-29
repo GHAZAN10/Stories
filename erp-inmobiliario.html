@@ -1746,6 +1746,7 @@ function renderDashboard() {
   const kpis = calcKPIs();
   const moneda = state.proyecto.moneda || 'USD';
   const calce = calcCalceMoneda();
+  const costoPorMoneda = calcCostoPorMoneda();
 
   // Salud de caja: cruza el cashflow proyectado con el saldo real consolidado de las 5 cuentas.
   const cashflowGlobal = calcCashflowMensualGlobal();
@@ -1838,8 +1839,8 @@ function renderDashboard() {
     </div>
     <div class="kpi-card">
       <div class="kpi-label">Compras — USD vs ARS+CAC</div>
-      <div class="kpi-value" style="color:var(--accent4)">${calce.costoTotal > 0 ? fmtPct(calce.costoUSD/calce.costoTotal*100) + ' <span class="text-2" style="font-size:15px">USD</span>' : '—'}</div>
-      <div class="kpi-sub">${calce.costoTotal > 0 ? fmtPct(calce.costoARS/calce.costoTotal*100) + ' ARS+CAC · sobre ' + fmt(calce.costoTotal) + ' contratado' : 'marcá contratos cerrados'}</div>
+      <div class="kpi-value" style="color:var(--accent4)">${costoPorMoneda.total > 0 ? fmtPct(costoPorMoneda.usd/costoPorMoneda.total*100) + ' <span class="text-2" style="font-size:15px">USD</span>' : '—'}</div>
+      <div class="kpi-sub">${costoPorMoneda.total > 0 ? fmtPct(costoPorMoneda.ars/costoPorMoneda.total*100) + ' ARS+CAC · sobre ' + fmt(costoPorMoneda.total) + ' (terreno+blandos+obra)' : 'cargá costos blandos y subcontratos'}</div>
     </div>
   `;
 
@@ -3609,10 +3610,31 @@ function calcCalceMoneda() {
   return { costoUSD, costoARS, costoTotal, ventaUSD, ventaARS, ventaTotal };
 }
 
+// Costo TOTAL por moneda: terreno + costos blandos + obra (todos los subcontratos y costos
+// blandos), usando el monto contratado real si el rubro está cerrado, o el estimado si no.
+function calcCostoPorMoneda() {
+  let usd = 0, ars = 0;
+  const ccFor = (rubro, tipo) => (state.costosCerrados || []).find(x => x.tipo === tipo && x.rubro === rubro);
+  state.subcontratos.forEach(s => {
+    const cc = ccFor(s.nombre, 'obra');
+    const monto = cc ? cc.montoContratadoUSD : (s.monto || 0);
+    const pct = (cc && cc.pctUSD != null) ? cc.pctUSD : (s.pctUSD != null ? s.pctUSD : 0);
+    const p = pct / 100; usd += monto * p; ars += monto * (1 - p);
+  });
+  state.costosBlandos.forEach(c => {
+    const cc = ccFor(c.rubro, 'blando');
+    const monto = cc ? cc.montoContratadoUSD : (c.totalUSD || 0);
+    const pct = (cc && cc.pctUSD != null) ? cc.pctUSD : (c.pctUSD != null ? c.pctUSD : 100);
+    const p = pct / 100; usd += monto * p; ars += monto * (1 - p);
+  });
+  return { usd, ars, total: usd + ars };
+}
+
 function renderDashCalce() {
   const el = document.getElementById('dash-calce');
   if (!el) return;
   const c = calcCalceMoneda();
+  const costo = calcCostoPorMoneda();
   const pct = (p, t) => t > 0 ? (p / t * 100) : 0;
   const fila = (titulo, usd, ars, total) => {
     const pu = pct(usd, total), pa = pct(ars, total);
@@ -3631,9 +3653,9 @@ function renderDashCalce() {
   };
   el.innerHTML =
     fila('Vendido', c.ventaUSD, c.ventaARS, c.ventaTotal) +
-    (c.costoTotal > 0
-      ? fila('Contratado', c.costoUSD, c.costoARS, c.costoTotal)
-      : '<div class="text-xs text-2">Contratado: marcá contratos cerrados en Rentabilidad → Estimado vs. Contratado para ver el calce de costos.</div>');
+    (costo.total > 0
+      ? fila('Compras (terreno + blandos + obra)', costo.usd, costo.ars, costo.total)
+      : '<div class="text-xs text-2">Compras: cargá costos blandos y subcontratos de obra para ver el calce de costos.</div>');
 }
 
 function renderCalceMoneda() {
