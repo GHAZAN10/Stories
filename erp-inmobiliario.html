@@ -65,10 +65,20 @@
 
   /* KPI Grid */
   .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
-  .kpi-card { background: var(--surface); border: 1px solid var(--border-soft); border-radius: 18px; padding: 20px; box-shadow: var(--shadow); }
-  .kpi-label { font-size: 12px; color: var(--text2); letter-spacing: -0.01em; font-weight: 500; }
+  .kpi-card { background: var(--surface); border: 1px solid var(--border-soft); border-radius: 18px; padding: 20px; box-shadow: var(--shadow); transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+  .kpi-card.clickable { cursor: pointer; }
+  .kpi-card.clickable:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0,0,0,0.10); border-color: var(--accent); }
+  .kpi-card.clickable:active { transform: translateY(0); }
+  .kpi-label { font-size: 12px; color: var(--text2); letter-spacing: -0.01em; font-weight: 500; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+  .kpi-label .zoom-hint { opacity: .45; font-size: 12px; }
+  .kpi-card.clickable:hover .zoom-hint { opacity: .9; }
   .kpi-value { font-size: 30px; font-weight: 600; margin: 8px 0 2px; letter-spacing: -0.02em; }
   .kpi-sub { font-size: 12.5px; color: var(--text2); }
+  .detalle-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--border-soft); font-size: 13.5px; }
+  .detalle-row:last-child { border-bottom: none; }
+  .detalle-section-title { font-size: 13px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: .03em; margin: 18px 0 6px; }
+  .detalle-section-title:first-child { margin-top: 0; }
+  .detalle-bar-wrap { height: 22px; border-radius: 7px; overflow: hidden; border: 1px solid var(--border-soft); display: flex; margin: 4px 0 10px; }
   .kpi-trend { font-size: 12px; font-weight: 600; }
   .kpi-trend.up { color: var(--green); }
   .kpi-trend.down { color: var(--red); }
@@ -1067,6 +1077,18 @@
   </div>
 </div>
 
+<!-- Modal Detalle de KPI (drill-down: click en cualquier valor del Dashboard) -->
+<div class="modal-overlay" id="modal-detalle-kpi">
+  <div class="modal" style="width:720px">
+    <h3 id="detalle-kpi-titulo">Detalle</h3>
+    <div id="detalle-kpi-sub" class="text-xs text-2 mb-4"></div>
+    <div id="detalle-kpi-container"></div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeModal('modal-detalle-kpi')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ============================================================
 // STATE
@@ -1830,73 +1852,73 @@ function renderDashboard() {
 
   // KPIs
   document.getElementById('dash-kpis').innerHTML = `
-    <div class="kpi-card">
-      <div class="kpi-label">Precio Vendido Prom/m²</div>
+    <div class="kpi-card clickable" onclick="showDetalleKpi('precioVendido')">
+      <div class="kpi-label">Precio Vendido Prom/m² <span class="zoom-hint">🔍</span></div>
       <div class="kpi-value text-accent">${fmt(kpis.precioPromedioVendido)}</div>
       <div class="kpi-sub">${fmtNum(kpis.m2Vendido)} m² vendidos</div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Precio Lista Prom/m² (Stock)</div>
+    <div class="kpi-card clickable" onclick="showDetalleKpi('precioLista')">
+      <div class="kpi-label">Precio Lista Prom/m² (Stock) <span class="zoom-hint">🔍</span></div>
       <div class="kpi-value" style="color:var(--accent2)">${fmt(kpis.precioPromedioLista)}</div>
       <div class="kpi-sub">${fmtNum(kpis.m2Disponible)} m² disponibles</div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-label">% Vendido</div>
+    <div class="kpi-card clickable" onclick="showDetalleKpi('pctVendido')">
+      <div class="kpi-label">% Vendido <span class="zoom-hint">🔍</span></div>
       <div class="kpi-value ${kpis.pctVendido >= 50 ? 'text-green' : 'text-yellow'}">${fmtPct(kpis.pctVendido)}</div>
       <div class="kpi-sub">${kpis.vendidas}/${kpis.totalUnidades} unidades</div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Avance Estructura (real)</div>
+    <div class="kpi-card clickable" onclick="showDetalleKpi('avanceEstructura')">
+      <div class="kpi-label">Avance Estructura (real) <span class="zoom-hint">🔍</span></div>
       <div class="kpi-value text-accent">${fmtPct(kpis.avanceEstructura)}</div>
       <div class="kpi-sub">Único rubro contratado · certificados ZAGA</div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Avance Global Obra (ponderado)</div>
+    <div class="kpi-card clickable" onclick="showDetalleKpi('avanceGlobal')">
+      <div class="kpi-label">Avance Global Obra (ponderado) <span class="zoom-hint">🔍</span></div>
       <div class="kpi-value" style="color:var(--accent2)">${fmtPct(kpis.avanceGlobalPonderado)}</div>
       <div class="kpi-sub">% del costo total de obra ejecutado</div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Margen Bruto Proyectado</div>
+    <div class="kpi-card clickable" onclick="showDetalleKpi('margen')">
+      <div class="kpi-label">Margen Bruto Proyectado <span class="zoom-hint">🔍</span></div>
       <div class="kpi-value ${kpis.margenBruto >= 0 ? 'text-green' : 'text-red'}">${fmtPct(kpis.margenPct)}</div>
       <div class="kpi-sub">${fmt(kpis.margenBruto)} · sobre ${fmt(kpis.ingresoTotalProyectado)} de ingreso total</div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Cobrado Real</div>
+    <div class="kpi-card clickable" onclick="showDetalleKpi('cobrado')">
+      <div class="kpi-label">Cobrado Real <span class="zoom-hint">🔍</span></div>
       <div class="kpi-value text-green">${fmt(kpis.cobrado)}</div>
       <div class="kpi-sub">de ${fmt(kpis.ingresoVentas)} comprometido</div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Saldo por Pagar (obra + blandos)</div>
+    <div class="kpi-card clickable" onclick="showDetalleKpi('saldoPorPagar')">
+      <div class="kpi-label">Saldo por Pagar (obra + blandos) <span class="zoom-hint">🔍</span></div>
       <div class="kpi-value text-yellow">${fmt(kpis.saldoSubcontratos)}</div>
       <div class="kpi-sub">de ${fmt(kpis.costoTotal)} costo total</div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Ingreso Total Lista</div>
+    <div class="kpi-card clickable" onclick="showDetalleKpi('ingresoListaTotal')">
+      <div class="kpi-label">Ingreso Total Lista <span class="zoom-hint">🔍</span></div>
       <div class="kpi-value">${fmt(kpis.ingresoVentas + kpis.listaDisponibles)}</div>
       <div class="kpi-sub">si se vende todo al precio lista</div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Valor Canjeado</div>
+    <div class="kpi-card clickable" onclick="showDetalleKpi('valorCanjeado')">
+      <div class="kpi-label">Valor Canjeado <span class="zoom-hint">🔍</span></div>
       <div class="kpi-value" style="color:#a78bfa">${fmt(kpis.valorCanjeado)}</div>
       <div class="kpi-sub">${kpis.canje} unidades (tierra/honorarios/obra)</div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Cocheras + Local</div>
+    <div class="kpi-card clickable" onclick="showDetalleKpi('cocherasLocal')">
+      <div class="kpi-label">Cocheras + Local <span class="zoom-hint">🔍</span></div>
       <div class="kpi-value text-green">${fmt(kpis.ingresoCocheras)}</div>
       <div class="kpi-sub">${kpis.cocherasVendidas}/${state.cocheras.length} vendidas · ${fmt(kpis.listaCocherasDisponibles)} en lista</div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Caja Consolidada Real</div>
+    <div class="kpi-card clickable" onclick="showDetalleKpi('cajaConsolidada')">
+      <div class="kpi-label">Caja Consolidada Real <span class="zoom-hint">🔍</span></div>
       <div class="kpi-value ${cajaConsolidadaUSD >= 0 ? 'text-green' : 'text-red'}">${fmt(cajaConsolidadaUSD)}</div>
       <div class="kpi-sub">${mesSinCaja ? `<span class="text-red">⚠ sin caja desde ${fmtMes(mesSinCaja)}</span>` : 'cashflow proyectado no muestra déficit'}</div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Ventas — USD vs ARS+CAC</div>
+    <div class="kpi-card clickable" onclick="showDetalleKpi('ventasCalce')">
+      <div class="kpi-label">Ventas — USD vs ARS+CAC <span class="zoom-hint">🔍</span></div>
       <div class="kpi-value text-accent">${fmtPct(calce.ventaTotal > 0 ? calce.ventaUSD/calce.ventaTotal*100 : 0)} <span class="text-2" style="font-size:15px">USD</span></div>
       <div class="kpi-sub">${fmtPct(calce.ventaTotal > 0 ? calce.ventaARS/calce.ventaTotal*100 : 0)} ARS+CAC · sobre ${fmt(calce.ventaTotal)} vendido</div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Compras — USD vs ARS+CAC</div>
+    <div class="kpi-card clickable" onclick="showDetalleKpi('comprasCalce')">
+      <div class="kpi-label">Compras — USD vs ARS+CAC <span class="zoom-hint">🔍</span></div>
       <div class="kpi-value" style="color:var(--accent4)">${costoPorMoneda.total > 0 ? fmtPct(costoPorMoneda.usd/costoPorMoneda.total*100) + ' <span class="text-2" style="font-size:15px">USD</span>' : '—'}</div>
       <div class="kpi-sub">${costoPorMoneda.total > 0 ? fmtPct(costoPorMoneda.ars/costoPorMoneda.total*100) + ' ARS+CAC · sobre ' + fmt(costoPorMoneda.total) + ' ya contratado' : 'marcá contratos cerrados'}</div>
     </div>
@@ -2079,6 +2101,216 @@ function renderVentasChart(kpis) {
       </div>
     `;
   }).join('');
+}
+
+// ============================================================
+// DRILL-DOWN: detalle interactivo de cada KPI del Dashboard
+// ============================================================
+function abrirDetalleKpi(titulo, subtitulo, html) {
+  document.getElementById('detalle-kpi-titulo').textContent = titulo;
+  document.getElementById('detalle-kpi-sub').textContent = subtitulo || '';
+  document.getElementById('detalle-kpi-container').innerHTML = html;
+  openModal('modal-detalle-kpi');
+}
+
+function dkTabla(headers, rows, totalRow) {
+  if (rows.length === 0) return '<div class="text-xs text-2" style="text-align:center;padding:16px">Sin datos.</div>';
+  const thead = '<tr>' + headers.map(h => `<th>${h}</th>`).join('') + '</tr>';
+  const tbody = rows.map(r => '<tr>' + r.map(c => `<td>${c}</td>`).join('') + '</tr>').join('');
+  const tfoot = totalRow ? `<tfoot><tr>${totalRow.map(c => `<td class="font-bold">${c}</td>`).join('')}</tr></tfoot>` : '';
+  return `<div style="max-height:400px;overflow:auto"><table>${`<thead>${thead}</thead>`}<tbody>${tbody}</tbody>${tfoot}</table></div>`;
+}
+
+function dkBarraMoneda(usd, ars) {
+  const total = usd + ars;
+  const pu = total > 0 ? usd / total * 100 : 0, pa = total > 0 ? ars / total * 100 : 0;
+  return `
+    <div class="detalle-bar-wrap">
+      <div style="width:${pu}%;background:var(--accent)"></div>
+      <div style="width:${pa}%;background:var(--accent4)"></div>
+    </div>
+    <div class="flex justify-between text-xs mb-3">
+      <span><span style="color:var(--accent)">■</span> USD ${fmt(usd)} (${fmtPct(pu)})</span>
+      <span><span style="color:var(--accent4)">■</span> ARS+CAC ${fmt(ars)} (${fmtPct(pa)})</span>
+    </div>`;
+}
+
+function showDetalleKpi(tipo) {
+  const kpis = calcKPIs();
+
+  if (tipo === 'precioVendido' || tipo === 'pctVendido') {
+    const vendidas = state.unidades.filter(u => u.estadoComercial === 'vendido');
+    const rows = vendidas.map(u => [u.numero, u.tipo, fmtNum(u.m2Total), fmt(u.precio), fmt(u.m2Total ? u.precio / u.m2Total : 0)]);
+    const total = vendidas.reduce((s, u) => s + (u.precio || 0), 0);
+    const m2 = vendidas.reduce((s, u) => s + (u.m2Total || 0), 0);
+    let extra = '';
+    if (tipo === 'pctVendido') {
+      const estados = ['disponible', 'vendido', 'reservado', 'bloqueado'];
+      const labels = { disponible: 'Disponibles', vendido: 'Vendidas', reservado: 'Reservadas', bloqueado: 'Bloqueadas' };
+      const conteo = estados.map(e => `${labels[e]}: <b>${state.unidades.filter(u => u.estadoComercial === e).length}</b>`).join(' · ');
+      const canjeCount = state.unidades.filter(u => (u.estadoComercial || '').startsWith('canje_')).length;
+      extra = `<div class="text-xs text-2 mb-3">${conteo} · Canje: <b>${canjeCount}</b> (no se venden, no entran en el %) · Total: <b>${state.unidades.length}</b></div>`;
+    }
+    abrirDetalleKpi('Unidades vendidas', `${vendidas.length} unidades · ${fmtNum(m2)} m² · ${fmt(total)} total`,
+      extra + dkTabla(['Unidad', 'Tipo', 'm²', 'Precio', 'Precio/m²'], rows, ['Total', '', fmtNum(m2), fmt(total), fmt(m2 ? total / m2 : 0)]));
+    return;
+  }
+
+  if (tipo === 'precioLista') {
+    const disp = state.unidades.filter(u => u.estadoComercial === 'disponible');
+    const rows = disp.map(u => [u.numero, u.tipo, fmtNum(u.m2Total), fmt(u.precio), fmt(u.m2Total ? u.precio / u.m2Total : 0)]);
+    const total = disp.reduce((s, u) => s + (u.precio || 0), 0);
+    const m2 = disp.reduce((s, u) => s + (u.m2Total || 0), 0);
+    abrirDetalleKpi('Stock disponible', `${disp.length} unidades · ${fmtNum(m2)} m² · ${fmt(total)} en lista`,
+      dkTabla(['Unidad', 'Tipo', 'm²', 'Precio', 'Precio/m²'], rows, ['Total', '', fmtNum(m2), fmt(total), fmt(m2 ? total / m2 : 0)]));
+    return;
+  }
+
+  if (tipo === 'avanceEstructura' || tipo === 'avanceGlobal') {
+    const sub = state.subcontratos.find(s => s.nombre === 'Estructura');
+    const certs = (sub && sub.cronogramaProyectado) ? Object.keys(sub.cronogramaProyectado) : [];
+    let html = '';
+    if (tipo === 'avanceEstructura') {
+      html += `<div class="detalle-row"><span>Plan acumulado a la fecha del último certificado</span><span class="font-bold">${fmtPct(sub ? sub.avanceEst : 0)}</span></div>`;
+      html += `<div class="detalle-row"><span>Real certificado (ZAGA)</span><span class="font-bold text-accent">${fmtPct(sub ? sub.avanceReal : 0)}</span></div>`;
+      html += `<div class="text-xs text-2 mt-2">${sub ? sub.notas : ''}</div>`;
+    } else {
+      const rows = state.subcontratos
+        .slice()
+        .sort((a, b) => (b.monto || 0) - (a.monto || 0))
+        .map(s => {
+          const cc = (state.costosCerrados || []).find(x => x.tipo === 'obra' && x.rubro === s.nombre);
+          const contrib = (s.avanceReal || 0) * (s.monto || 0);
+          return [s.nombre, cc ? '<span class="badge badge-green">Cerrado</span>' : '<span class="badge badge-gray">Estimado</span>', fmt(s.monto || 0), fmtPct(s.avanceReal || 0), fmt(contrib)];
+        });
+      html = `<div class="text-xs text-2 mb-3">% ponderado = Σ(avance real del rubro × su costo) / costo total de obra. Por eso es mucho menor que el avance de Estructura sola: esa es solo una parte del costo total de la obra.</div>` +
+        dkTabla(['Rubro', 'Estado', 'Costo (USD)', 'Avance real', 'Avance × costo'], rows, ['Total', '', fmt(kpis.costoSubcontratos), '', fmt(kpis.avanceGlobalPonderado * kpis.costoSubcontratos / 100)]);
+    }
+    abrirDetalleKpi(tipo === 'avanceEstructura' ? 'Avance Estructura' : 'Avance Global Obra (ponderado)', '', html);
+    return;
+  }
+
+  if (tipo === 'margen') {
+    const html = `
+      <div class="detalle-row"><span>Ingreso total proyectado (ventas + lista + cocheras)</span><span class="font-bold text-green">${fmt(kpis.ingresoTotalProyectado)}</span></div>
+      <div class="detalle-row"><span>Costo total (obra + blandos)</span><span class="font-bold text-red">${fmt(kpis.costoTotal)}</span></div>
+      <div class="detalle-row"><span>Margen bruto</span><span class="font-bold">${fmt(kpis.margenBruto)}</span></div>
+      <div class="detalle-row"><span>Margen %</span><span class="font-bold">${fmtPct(kpis.margenPct)}</span></div>`;
+    abrirDetalleKpi('Margen Bruto Proyectado', '', html);
+    return;
+  }
+
+  if (tipo === 'cobrado') {
+    const tc = state.proyecto.tc || 1450;
+    const ingresos = state.movimientos.filter(m => m.tipo === 'ingreso');
+    const porCaja = Object.keys(cajaInfo).map(c => {
+      const monto = ingresos.filter(m => m.caja === c).reduce((s, m) => s + (m.monto || 0), 0);
+      const moneda = cajaInfo[c].moneda || 'USD';
+      const montoUSD = moneda === 'ARS' ? monto / tc : monto;
+      return [cajaInfo[c].nombre, moneda, fmt(monto), fmt(montoUSD)];
+    });
+    abrirDetalleKpi('Cobrado Real (todas las cajas)', `de ${fmt(kpis.ingresoVentas)} comprometido en ventas`,
+      dkTabla(['Caja', 'Moneda', 'Ingresos (moneda local)', 'Equivalente USD'], porCaja, ['Total', '', '', fmt(kpis.cobrado)]));
+    return;
+  }
+
+  if (tipo === 'saldoPorPagar') {
+    const itemsObra = state.subcontratos.map(s => {
+      const cc = (state.costosCerrados || []).find(x => x.tipo === 'obra' && x.rubro === s.nombre);
+      const monto = cc ? cc.montoContratadoUSD : (s.monto || 0);
+      return { saldo: monto - (s.pagado || 0), row: ['Obra: ' + s.nombre, cc ? '<span class="badge badge-green">Cerrado</span>' : '<span class="badge badge-gray">Estimado</span>', fmt(monto), fmt(s.pagado || 0), fmt(monto - (s.pagado || 0))] };
+    });
+    const itemsBlandos = state.costosBlandos.map(c => {
+      const cc = (state.costosCerrados || []).find(x => x.tipo === 'blando' && x.rubro === c.rubro);
+      const monto = cc ? cc.montoContratadoUSD : (c.totalUSD || 0);
+      return { saldo: monto - (c.pagadoUSD || 0), row: ['Blando: ' + c.rubro, cc ? '<span class="badge badge-green">Cerrado</span>' : '<span class="badge badge-gray">Estimado</span>', fmt(monto), fmt(c.pagadoUSD || 0), fmt(monto - (c.pagadoUSD || 0))] };
+    });
+    const rows = itemsObra.concat(itemsBlandos).sort((a, b) => b.saldo - a.saldo).map(x => x.row);
+    abrirDetalleKpi('Saldo por Pagar (obra + blandos)', `de ${fmt(kpis.costoTotal)} costo total`,
+      dkTabla(['Rubro', 'Estado', 'Monto', 'Pagado', 'Saldo'], rows, ['Total', '', fmt(kpis.costoTotal), fmt(kpis.pagadoTotal), fmt(kpis.saldoSubcontratos)]));
+    return;
+  }
+
+  if (tipo === 'ingresoListaTotal') {
+    const vendidas = state.unidades.filter(u => u.estadoComercial === 'vendido');
+    const disp = state.unidades.filter(u => u.estadoComercial === 'disponible');
+    const html = `
+      <div class="detalle-row"><span>Ya vendido (unidades)</span><span class="font-bold">${fmt(kpis.ingresoVentas)}</span></div>
+      <div class="detalle-row"><span>Disponible a precio lista (unidades)</span><span class="font-bold">${fmt(kpis.listaDisponibles)}</span></div>
+      <div class="detalle-row"><span>Cocheras + Local (vendido + lista)</span><span class="font-bold">${fmt(kpis.cocherasVendidas ? kpis.ingresoCocheras : 0)}</span></div>
+      <div class="detalle-row"><span class="font-bold">Total si se vende todo</span><span class="font-bold text-accent">${fmt(kpis.ingresoVentas + kpis.listaDisponibles)}</span></div>
+      <div class="text-xs text-2 mt-2">${vendidas.length} unidades vendidas + ${disp.length} disponibles a precio de lista.</div>`;
+    abrirDetalleKpi('Ingreso Total a Precio Lista', '', html);
+    return;
+  }
+
+  if (tipo === 'valorCanjeado') {
+    const canje = state.unidades.filter(u => (u.estadoComercial || '').startsWith('canje_'));
+    const labels = { canje_tierra: 'Tierra', canje_honorarios: 'Honorarios', canje_obra: 'Obra' };
+    const rows = canje.map(u => [u.numero, labels[u.estadoComercial] || u.estadoComercial, u.cliente || '—', fmt(u.precio)]);
+    abrirDetalleKpi('Valor Canjeado', `${canje.length} unidades — no generan cobro en efectivo`,
+      dkTabla(['Unidad', 'Tipo de canje', 'Contraparte', 'Valor notional'], rows, ['Total', '', '', fmt(kpis.valorCanjeado)]));
+    return;
+  }
+
+  if (tipo === 'cocherasLocal') {
+    const rows = state.cocheras.map(c => [c.numero, c.piso || '—', c.estado, c.cliente || '—', fmt(c.precio)]);
+    abrirDetalleKpi('Cocheras + Local', `${kpis.cocherasVendidas}/${state.cocheras.length} vendidas`,
+      dkTabla(['N°', 'Piso', 'Estado', 'Cliente', 'Precio'], rows, ['Total vendido', '', '', '', fmt(kpis.ingresoCocheras)]));
+    return;
+  }
+
+  if (tipo === 'cajaConsolidada') {
+    const tc = state.proyecto.tc || 1450;
+    const rows = Object.keys(cajaInfo).map(c => {
+      const saldo = calcSaldoCaja(c);
+      const moneda = cajaInfo[c].moneda || 'USD';
+      const saldoUSD = moneda === 'ARS' ? saldo / tc : saldo;
+      return [cajaInfo[c].nombre, moneda, fmt(saldo), fmt(saldoUSD)];
+    });
+    abrirDetalleKpi('Caja Consolidada Real', 'Saldo de las 5 cuentas, convertido a USD',
+      dkTabla(['Caja', 'Moneda', 'Saldo', 'Equivalente USD'], rows, ['Total', '', '', fmt(calcSaldoCajaConsolidadoUSD())]));
+    return;
+  }
+
+  if (tipo === 'ventasCalce') {
+    const c = calcCalceMoneda();
+    const ventas = state.ventas.map(getVentaData).filter(v => v.unidad);
+    const rows = ventas.map(v => {
+      const sena = v.sena || 0;
+      const saldo = Math.max(0, (v.precio || 0) - sena);
+      const p = (v.pctSaldoUSD || 0) / 100;
+      const usd = sena + saldo * p, ars = saldo * (1 - p);
+      return [v.unidad.numero, v.comprador || '—', fmt(v.precio), fmt(sena), fmtPct(v.pctSaldoUSD || 0), fmt(usd), fmt(ars)];
+    });
+    abrirDetalleKpi('Ventas — composición USD vs ARS+CAC', 'La seña siempre cuenta como USD; el saldo se parte según el % cargado en cada venta.',
+      dkBarraMoneda(c.ventaUSD, c.ventaARS) +
+      dkTabla(['Unidad', 'Comprador', 'Precio', 'Seña (USD)', '% USD saldo', 'Total USD', 'Total ARS+CAC'], rows,
+        ['Total', '', fmt(c.ventaTotal), '', '', fmt(c.ventaUSD), fmt(c.ventaARS)]));
+    return;
+  }
+
+  if (tipo === 'comprasCalce') {
+    const costo = calcCostoPorMoneda();
+    const itemsBlandos = state.costosBlandos.map(c => {
+      const cc = (state.costosCerrados || []).find(x => x.tipo === 'blando' && x.rubro === c.rubro);
+      const monto = cc ? cc.montoContratadoUSD : (c.totalUSD || 0);
+      const pct = (cc && cc.pctUSD != null) ? cc.pctUSD : (c.pctUSD != null ? c.pctUSD : 100);
+      return { monto, row: ['Blando/Terreno: ' + c.rubro, fmt(monto), fmtPct(pct), fmt(monto * pct / 100), fmt(monto * (1 - pct / 100))] };
+    });
+    const itemsObra = state.subcontratos.filter(s => (state.costosCerrados || []).find(x => x.tipo === 'obra' && x.rubro === s.nombre)).map(s => {
+      const cc = (state.costosCerrados || []).find(x => x.tipo === 'obra' && x.rubro === s.nombre);
+      const monto = cc.montoContratadoUSD || 0;
+      const pct = cc.pctUSD != null ? cc.pctUSD : (s.pctUSD != null ? s.pctUSD : 0);
+      return { monto, row: ['Obra (cerrado): ' + s.nombre, fmt(monto), fmtPct(pct), fmt(monto * pct / 100), fmt(monto * (1 - pct / 100))] };
+    });
+    const sinCerrar = state.subcontratos.filter(s => !(state.costosCerrados || []).find(x => x.tipo === 'obra' && x.rubro === s.nombre)).length;
+    const rows = itemsBlandos.concat(itemsObra).sort((a, b) => b.monto - a.monto).map(x => x.row);
+    abrirDetalleKpi('Compras — composición USD vs ARS+CAC', `Terreno + costos blandos (siempre cuentan) + obra solo si está cerrada. ${sinCerrar} subcontratos de obra todavía sin cerrar no están incluidos.`,
+      dkBarraMoneda(costo.usd, costo.ars) +
+      dkTabla(['Rubro', 'Monto', '% USD', 'USD', 'ARS+CAC'], rows, ['Total', fmt(costo.total), '', fmt(costo.usd), fmt(costo.ars)]));
+    return;
+  }
 }
 
 // ============================================================
@@ -3705,11 +3937,11 @@ function renderDashCalce() {
   const c = calcCalceMoneda();
   const costo = calcCostoPorMoneda();
   const pct = (p, t) => t > 0 ? (p / t * 100) : 0;
-  const fila = (titulo, usd, ars, total) => {
+  const fila = (titulo, usd, ars, total, tipo) => {
     const pu = pct(usd, total), pa = pct(ars, total);
     return `
-      <div style="margin-bottom:14px">
-        <div class="flex justify-between mb-1"><span class="text-sm font-bold">${titulo}</span><span class="text-xs text-2">${fmt(total)}</span></div>
+      <div style="margin-bottom:14px;cursor:pointer" onclick="showDetalleKpi('${tipo}')" title="Ver composición">
+        <div class="flex justify-between mb-1"><span class="text-sm font-bold">${titulo} <span class="zoom-hint" style="opacity:.5">🔍</span></span><span class="text-xs text-2">${fmt(total)}</span></div>
         <div style="display:flex;height:24px;border-radius:8px;overflow:hidden;border:1px solid var(--border-soft)">
           <div style="width:${pu}%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600">${pu >= 14 ? pu.toFixed(0) + '%' : ''}</div>
           <div style="width:${pa}%;background:var(--accent4);display:flex;align-items:center;justify-content:center;color:#1d1d1f;font-size:11px;font-weight:600">${pa >= 14 ? pa.toFixed(0) + '%' : ''}</div>
@@ -3721,9 +3953,9 @@ function renderDashCalce() {
       </div>`;
   };
   el.innerHTML =
-    fila('Vendido', c.ventaUSD, c.ventaARS, c.ventaTotal) +
+    fila('Vendido', c.ventaUSD, c.ventaARS, c.ventaTotal, 'ventasCalce') +
     (costo.total > 0
-      ? fila('Compras (terreno + blandos + obra cerrada)', costo.usd, costo.ars, costo.total)
+      ? fila('Compras (terreno + blandos + obra cerrada)', costo.usd, costo.ars, costo.total, 'comprasCalce')
       : '<div class="text-xs text-2">Compras: cargá costos blandos/terreno o marcá contratos de obra cerrados para ver el calce de costos.</div>');
 }
 
