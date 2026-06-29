@@ -1989,14 +1989,17 @@ function renderStockBreakdown(kpis) {
 }
 
 function renderVentasChart(kpis) {
+  // Las unidades en canje (tierra/honorarios/obra) no se venden: se excluyen del stock
+  // y del vendido para que el % refleje solo lo que efectivamente sale a la venta.
   const tipos = {};
   state.ventas.forEach(v => {
     const u = state.unidades.find(x => x.id === v.unidadId);
-    if (!u) return;
+    if (!u || (u.estadoComercial || '').startsWith('canje_')) return;
     if (!tipos[u.tipo]) tipos[u.tipo] = { vendidas: 0, total: 0 };
     tipos[u.tipo].vendidas++;
   });
   state.unidades.forEach(u => {
+    if ((u.estadoComercial || '').startsWith('canje_')) return;
     if (!tipos[u.tipo]) tipos[u.tipo] = { vendidas: 0, total: 0 };
     tipos[u.tipo].total++;
   });
