@@ -291,6 +291,11 @@
 
       <div class="kpi-grid" id="dash-kpis"></div>
 
+      <div class="card mb-6">
+        <div class="card-title mb-4">Calce de Moneda — Vendido vs. Contratado (USD vs ARS+CAC)</div>
+        <div id="dash-calce"></div>
+      </div>
+
       <div class="grid-2 mb-6">
         <div class="card">
           <div class="card-title mb-4">Stock — Unidades (cantidad y m²)</div>
@@ -744,7 +749,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>Categoría</th><th>Rubro</th><th>Total USD</th><th>Pagado USD</th><th>Saldo USD</th><th>% Pagado</th><th>Acciones</th></tr>
+              <tr><th>Categoría</th><th>Rubro</th><th>Total USD</th><th>Pagado USD</th><th>Saldo USD</th><th>% Pagado</th><th>Moneda</th><th>Acciones</th></tr>
             </thead>
             <tbody id="tabla-costos-blandos"></tbody>
             <tfoot id="tfoot-costos-blandos"></tfoot>
@@ -1110,6 +1115,19 @@ function applyMigrations() {
     (state.costosBlandos || []).forEach(c => { if (c.pctUSD == null) c.pctUSD = 100; });
     (state.ventas || []).forEach(v => { if (v.pctSaldoUSD == null) v.pctSaldoUSD = 0; });
     state._migr.calceMonedaV1 = true;
+    changed = true;
+  }
+
+  // calceMonedaV2: corrige el % USD del saldo de cada venta con el split REAL reconstruido de
+  // las condiciones de pago originales (cuotas USD fijas vs cuotas ARS+CAC). El default anterior
+  // (todo ARS+CAC) sobrecargaba pesos. Mapeo por número de unidad.
+  if (!state._migr.calceMonedaV2 && Array.isArray(state.ventas)) {
+    const MAP = {'1E':0,'2A':100,'2C':100,'2G':95,'2H':100,'3A':100,'3B':100,'3E':100,'3F':100,'4A':100,'4B':100,'4E':0,'4F':97,'5C':0,'7A':0};
+    state.ventas.forEach(v => {
+      const u = (state.unidades || []).find(x => x.id === v.unidadId);
+      if (u && MAP[u.numero] != null) v.pctSaldoUSD = MAP[u.numero];
+    });
+    state._migr.calceMonedaV2 = true;
     changed = true;
   }
 
@@ -1613,10 +1631,16 @@ function calcKPIs() {
   const m2Disponible = disponibles.reduce((s, u) => s + (u.m2Total || 0), 0);
   const precioPromedioLista = m2Disponible > 0 ? listaDisponibles / m2Disponible : 0;
 
-  // Costo total dinámico: rubros de obra (subcontratos) + costos blandos/tierra/impuestos
-  const costoSubcontratos = subcontratos.reduce((s, c) => s + (c.monto || 0), 0);
+  // Costo total dinámico: rubros de obra (subcontratos) + costos blandos/tierra/impuestos.
+  // Si un rubro está CERRADO (Estimado vs. Contratado), usa el monto contratado real en vez
+  // del estimado, así la rentabilidad se alimenta de los contratos firmados (ej. Estructura).
+  const montoCerrado = (rubro, tipo) => {
+    const cc = (state.costosCerrados || []).find(x => x.tipo === tipo && x.rubro === rubro);
+    return cc ? cc.montoContratadoUSD : null;
+  };
+  const costoSubcontratos = subcontratos.reduce((s, c) => { const mc = montoCerrado(c.nombre, 'obra'); return s + (mc != null ? mc : (c.monto || 0)); }, 0);
   const pagadoSubcontratos = subcontratos.reduce((s, c) => s + (c.pagado || 0), 0);
-  const costoBlandos = state.costosBlandos.reduce((s, c) => s + (c.totalUSD || 0), 0);
+  const costoBlandos = state.costosBlandos.reduce((s, c) => { const mc = montoCerrado(c.rubro, 'blando'); return s + (mc != null ? mc : (c.totalUSD || 0)); }, 0);
   const pagadoBlandos = state.costosBlandos.reduce((s, c) => s + (c.pagadoUSD || 0), 0);
   const costoTotal = costoSubcontratos + costoBlandos;
   const pagadoTotal = pagadoSubcontratos + pagadoBlandos;
@@ -1809,6 +1833,7 @@ function renderDashboard() {
 
   // Stock de unidades y cocheras+local
   renderStockBreakdown(kpis);
+  renderDashCalce();
 
   // Cashflow chart (simple 6-month projection)
   renderCashflowChart();
@@ -3569,6 +3594,33 @@ function calcCalceMoneda() {
   return { costoUSD, costoARS, costoTotal, ventaUSD, ventaARS, ventaTotal };
 }
 
+function renderDashCalce() {
+  const el = document.getElementById('dash-calce');
+  if (!el) return;
+  const c = calcCalceMoneda();
+  const pct = (p, t) => t > 0 ? (p / t * 100) : 0;
+  const fila = (titulo, usd, ars, total) => {
+    const pu = pct(usd, total), pa = pct(ars, total);
+    return `
+      <div style="margin-bottom:14px">
+        <div class="flex justify-between mb-1"><span class="text-sm font-bold">${titulo}</span><span class="text-xs text-2">${fmt(total)}</span></div>
+        <div style="display:flex;height:24px;border-radius:8px;overflow:hidden;border:1px solid var(--border-soft)">
+          <div style="width:${pu}%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:600">${pu >= 14 ? pu.toFixed(0) + '%' : ''}</div>
+          <div style="width:${pa}%;background:var(--accent4);display:flex;align-items:center;justify-content:center;color:#1d1d1f;font-size:11px;font-weight:600">${pa >= 14 ? pa.toFixed(0) + '%' : ''}</div>
+        </div>
+        <div class="flex justify-between text-xs mt-1">
+          <span><span style="color:var(--accent)">■</span> USD ${fmt(usd)} (${pu.toFixed(1)}%)</span>
+          <span><span style="color:var(--accent4)">■</span> ARS+CAC ${fmt(ars)} (${pa.toFixed(1)}%)</span>
+        </div>
+      </div>`;
+  };
+  el.innerHTML =
+    fila('Vendido', c.ventaUSD, c.ventaARS, c.ventaTotal) +
+    (c.costoTotal > 0
+      ? fila('Contratado', c.costoUSD, c.costoARS, c.costoTotal)
+      : '<div class="text-xs text-2">Contratado: marcá contratos cerrados en Rentabilidad → Estimado vs. Contratado para ver el calce de costos.</div>');
+}
+
 function renderCalceMoneda() {
   const c = calcCalceMoneda();
   const pct = (parte, total) => total > 0 ? (parte / total * 100) : 0;
@@ -3739,13 +3791,14 @@ function renderCostosBlandos() {
         <td class="text-green">${fmt(c.pagadoUSD)}</td>
         <td class="${saldo > 0 ? 'text-yellow' : 'text-2'}">${fmt(saldo)}</td>
         <td>${fmtPct(pct)}</td>
+        <td class="text-xs">${(c.pctUSD != null ? c.pctUSD : 100)}% USD · ${100 - (c.pctUSD != null ? c.pctUSD : 100)}% ARS+CAC</td>
         <td>
           <button class="btn btn-secondary btn-sm" onclick="editCostoBlando('${c.id}')">✏️</button>
           <button class="btn btn-danger btn-sm" onclick="deleteCostoBlando('${c.id}')">🗑</button>
         </td>
       </tr>
     `;
-  }).join('') || '<tr><td colspan="7" class="text-2 text-sm" style="text-align:center;padding:20px">Sin costos blandos cargados</td></tr>';
+  }).join('') || '<tr><td colspan="8" class="text-2 text-sm" style="text-align:center;padding:20px">Sin costos blandos cargados</td></tr>';
 
   document.getElementById('tfoot-costos-blandos').innerHTML = state.costosBlandos.length === 0 ? '' : `
     <tr>
@@ -3754,7 +3807,7 @@ function renderCostosBlandos() {
       <td class="font-bold text-green">${fmt(pagado)}</td>
       <td class="font-bold ${(total - pagado) > 0 ? 'text-yellow' : 'text-2'}">${fmt(total - pagado)}</td>
       <td class="font-bold">${fmtPct(total > 0 ? pagado / total * 100 : 0)}</td>
-      <td></td>
+      <td colspan="2"></td>
     </tr>
   `;
 }
