@@ -620,7 +620,7 @@
 
         <div class="card mb-6">
           <div class="card-title mb-4">Cashflow Mensual Proyectado (todo el horizonte de obra)</div>
-          <div class="text-xs text-2 mb-4">Ingreso = cuotas pendientes de ventas con boleto/escritura. Egreso = saldo de cada subcontrato distribuido linealmente hasta su fecha de fin. No incluye canjes (no generan caja). La columna "Caja Proyectada" arranca del saldo real consolidado de las 5 cuentas (convertido a USD) y le suma el cashflow proyectado mes a mes — si en algún mes da negativo, ese mes te quedás sin caja para pagar obra con los supuestos actuales.</div>
+          <div class="text-xs text-2 mb-4">Ingreso = cuotas pendientes de ventas con boleto/escritura. Egreso = avance estimado mes a mes de cada subcontrato (su propia curva de cronograma) × su monto. No incluye canjes (no generan caja). La columna "Caja Proyectada" arranca del saldo real consolidado de las 5 cuentas (convertido a USD) y le suma el cashflow proyectado mes a mes — si en algún mes da negativo, ese mes te quedás sin caja para pagar obra con los supuestos actuales.</div>
           <div class="table-wrap">
             <table>
               <thead>
@@ -2072,39 +2072,20 @@ function renderDashboard() {
 }
 
 function renderCashflowChart() {
-  const months = [];
-  const hoy = new Date();
-  for (let i = 0; i < 6; i++) {
-    const d = new Date(hoy.getFullYear(), hoy.getMonth() + i, 1);
-    months.push({ label: d.toLocaleString('es-AR', { month: 'short' }), date: d });
-  }
+  // Usa la misma curva por rubro que el cashflow de Cronograma → Mes a Mes (avanceEstimadoSubEnFecha,
+  // con cronogramaProyectado de cada subcontrato), en vez de repartir el saldo en partes iguales
+  // entre hoy y la fecha de fin — eso daba el mismo egreso todos los meses, sin sentido.
+  const data = calcCashflowMensualGlobal();
+  const chart = document.getElementById('cf-chart');
+  if (!data) { chart.innerHTML = ''; return; }
+  const datos = data.filas
+    .filter(f => f.mesDate >= data.hoyMes)
+    .slice(0, 6)
+    .map(f => ({ mes: fmtMes(f.mesDate), ingreso: f.ingreso, egreso: f.egreso }));
 
-  // Ingresos: cuotas pendientes de ventas firmes (boleto/escritura) — monto fijo de cuota, no aleatorio.
-  const ventasActivas = state.ventas.filter(v => v.estado === 'boleto' || v.estado === 'escritura');
-  const ingresosPorMes = months.map(() => 0);
-  ventasActivas.forEach(v => {
-    const cuotaValor = v.cuotas > 0 ? (v.precio - (v.sena || 0)) / v.cuotas : 0;
-    const pendientes = Math.max(0, (v.cuotas || 0) - (v.cuotasCobradas || 0));
-    for (let i = 0; i < Math.min(6, pendientes); i++) ingresosPorMes[i] += cuotaValor;
-  });
-
-  // Egresos: saldo pendiente de cada subcontrato, distribuido linealmente entre hoy y su fecha de fin.
-  const egresosPorMes = months.map(() => 0);
-  state.subcontratos.forEach(s => {
-    const saldo = (s.monto || 0) - (s.pagado || 0);
-    if (saldo <= 0) return;
-    const fin = s.fin ? new Date(s.fin) : null;
-    const mesesRestantes = fin ? Math.max(1, Math.round((fin - hoy) / (1000 * 60 * 60 * 24 * 30.44))) : 12;
-    const cuotaMensual = saldo / mesesRestantes;
-    for (let i = 0; i < Math.min(6, mesesRestantes); i++) egresosPorMes[i] += cuotaMensual;
-  });
-
-  const datos = months.map((m, i) => ({ mes: m.label, ingreso: ingresosPorMes[i], egreso: egresosPorMes[i] }));
-
-  const maxVal = Math.max(...datos.map(d => Math.max(d.ingreso, d.egreso)));
+  const maxVal = Math.max(...datos.map(d => Math.max(d.ingreso, d.egreso)), 0);
   const h = 180;
 
-  const chart = document.getElementById('cf-chart');
   chart.style.cursor = 'pointer';
   chart.title = 'Ver detalle mes a mes';
   chart.onclick = () => showDetalleKpi('cashflow6m');
@@ -2253,28 +2234,11 @@ function showDetalleKpi(tipo, param) {
   }
 
   if (tipo === 'cashflow6m') {
-    const months = [];
-    const hoy = new Date();
-    for (let i = 0; i < 6; i++) months.push(new Date(hoy.getFullYear(), hoy.getMonth() + i, 1));
-    const ventasActivas = state.ventas.filter(v => v.estado === 'boleto' || v.estado === 'escritura');
-    const ingresosPorMes = months.map(() => 0);
-    ventasActivas.forEach(v => {
-      const cuotaValor = v.cuotas > 0 ? (v.precio - (v.sena || 0)) / v.cuotas : 0;
-      const pendientes = Math.max(0, (v.cuotas || 0) - (v.cuotasCobradas || 0));
-      for (let i = 0; i < Math.min(6, pendientes); i++) ingresosPorMes[i] += cuotaValor;
-    });
-    const egresosPorMes = months.map(() => 0);
-    state.subcontratos.forEach(s => {
-      const saldo = (s.monto || 0) - (s.pagado || 0);
-      if (saldo <= 0) return;
-      const fin = s.fin ? new Date(s.fin) : null;
-      const mesesRestantes = fin ? Math.max(1, Math.round((fin - hoy) / (1000 * 60 * 60 * 24 * 30.44))) : 12;
-      const cuotaMensual = saldo / mesesRestantes;
-      for (let i = 0; i < Math.min(6, mesesRestantes); i++) egresosPorMes[i] += cuotaMensual;
-    });
-    const rows = months.map((d, i) => [fmtMes(d), fmt(ingresosPorMes[i]), fmt(egresosPorMes[i]), fmt(ingresosPorMes[i] - egresosPorMes[i])]);
-    const totIngreso = ingresosPorMes.reduce((s, x) => s + x, 0), totEgreso = egresosPorMes.reduce((s, x) => s + x, 0);
-    abrirDetalleKpi('Cashflow Proyectado (próx. 6 meses)', 'Ingresos = cuotas pendientes de ventas firmes. Egresos = saldo de cada subcontrato distribuido linealmente hasta su fin.',
+    const data = calcCashflowMensualGlobal();
+    const filas6 = data ? data.filas.filter(f => f.mesDate >= data.hoyMes).slice(0, 6) : [];
+    const rows = filas6.map(f => [fmtMes(f.mesDate), fmt(f.ingreso), fmt(f.egreso), fmt(f.neto)]);
+    const totIngreso = filas6.reduce((s, f) => s + f.ingreso, 0), totEgreso = filas6.reduce((s, f) => s + f.egreso, 0);
+    abrirDetalleKpi('Cashflow Proyectado (próx. 6 meses)', 'Ingresos = cuotas pendientes de ventas firmes. Egresos = avance estimado mes a mes de cada subcontrato (su propia curva) × su monto.',
       dkTabla(['Mes', 'Ingreso', 'Egreso', 'Neto'], rows, ['Total', fmt(totIngreso), fmt(totEgreso), fmt(totIngreso - totEgreso)]));
     return;
   }
