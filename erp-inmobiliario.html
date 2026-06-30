@@ -1270,6 +1270,30 @@ function applyMigrations() {
     }
   }
 
+  // estructuraCertsV4: certificado N°6 de ZAGA (Mayo-26). Mismo método que V3: el % cumulative
+  // de cada certificado real se calcula sobre el monto $ ARS acumulado certificado dividido la
+  // base fija de 2.379.865.244 (la que usan los certificados 3 y 4), para que la serie de % sea
+  // consistente entre certificados aunque cada planilla individual reporte un % distinto (cambian
+  // de base de un certificado a otro). Cert6 acumulado $ 421.086.090 → 17.69%.
+  if (!state._migr.estructuraCertsV4 && Array.isArray(state.subcontratos)) {
+    const sub = state.subcontratos.find(s => s.nombre === 'Estructura');
+    if (sub) {
+      sub.avanceEst = 28.18;
+      sub.avanceReal = 17.69;
+      if (!Array.isArray(state.certificaciones)) state.certificaciones = [];
+      if (!state.certificaciones.find(c => c.subcontratoId === sub.id && c.desc && c.desc.startsWith('Certificado 6'))) {
+        const prev = 16.30, pct = 17.69, incr = pct - prev;
+        state.certificaciones.push({
+          id: uid(), subcontratoId: sub.id, fecha: '2026-05-31',
+          desc: 'Certificado 6 — ZAGA (Excavación + Hormigón)',
+          monto: Math.round(sub.monto * incr / 100), avance: pct, avanceGlobal: pct
+        });
+      }
+      state._migr.estructuraCertsV4 = true;
+      changed = true;
+    }
+  }
+
   // cronogramaRubrosV1: cronograma proyectado real de los 28 rubros de obra (no Estructura, que
   // ya usa el plan real ZAGA), extraído del cash flow v5 — cada rubro arranca en un mes distinto
   // con su propio % de avance mensual, en vez de la proyección lineal genérica Ene-26→Jun-28 que
