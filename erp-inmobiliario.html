@@ -1269,6 +1269,52 @@ function applyMigrations() {
       changed = true;
     }
   }
+
+  // cronogramaRubrosV1: cronograma proyectado real de los 28 rubros de obra (no Estructura, que
+  // ya usa el plan real ZAGA), extraído del cash flow v5 — cada rubro arranca en un mes distinto
+  // con su propio % de avance mensual, en vez de la proyección lineal genérica Ene-26→Jun-28 que
+  // tenían todos por igual. Ej: Eléctrica arranca Sep-26, Sanitaria Oct-26.
+  if (!state._migr.cronogramaRubrosV1 && Array.isArray(state.subcontratos)) {
+    const CRONOGRAMA_RUBROS = {
+      'Obra húmeda + DLK': { inicio: '2027-01-01', fin: '2028-01-31', curva: { 'Ene-27':20.0, 'Feb-27':6.79, 'Mar-27':6.79, 'Abr-27':6.79, 'May-27':6.79, 'Jun-27':7.37, 'Jul-27':7.37, 'Ago-27':6.79, 'Sep-27':6.79, 'Oct-27':6.79, 'Nov-27':6.73, 'Dic-27':6.0, 'Ene-28':5.0 } },
+      'Inst. eléctrica + PE': { inicio: '2026-09-01', fin: '2028-03-31', curva: { 'Sep-26':25.0, 'Oct-26':2.25, 'Nov-26':2.25, 'Dic-26':2.25, 'Ene-27':5.25, 'Feb-27':5.25, 'Mar-27':5.25, 'Abr-27':6.25, 'May-27':6.25, 'Jun-27':6.25, 'Jul-27':5.25, 'Ago-27':5.25, 'Sep-27':5.25, 'Oct-27':3.0, 'Nov-27':3.0, 'Dic-27':3.0, 'Ene-28':3.0, 'Feb-28':3.0, 'Mar-28':3.0 } },
+      'Inst. sanitaria + gas + incendio': { inicio: '2026-11-01', fin: '2027-10-31', curva: { 'Nov-26':30.0, 'Dic-26':6.36, 'Ene-27':6.36, 'Feb-27':6.36, 'Mar-27':8.33, 'Abr-27':8.33, 'May-27':8.33, 'Jun-27':8.33, 'Jul-27':6.36, 'Ago-27':3.76, 'Sep-27':3.74, 'Oct-27':3.74 } },
+      'Bombas sanitarias e incendio': { inicio: '2027-01-01', fin: '2027-06-30', curva: { 'Ene-27':50.0, 'Mar-27':40.0, 'Jun-27':10.0 } },
+      'Calderas': { inicio: '2027-01-01', fin: '2027-06-30', curva: { 'Ene-27':50.0, 'Mar-27':40.0, 'Jun-27':10.0 } },
+      'Puertas y marcos de chapa': { inicio: '2026-12-01', fin: '2027-03-31', curva: { 'Dic-26':50.0, 'Mar-27':50.0 } },
+      'Herrerías': { inicio: '2026-12-01', fin: '2027-09-30', curva: { 'Dic-26':40.0, 'Abr-27':10.0, 'May-27':10.0, 'Jun-27':10.0, 'Jul-27':10.0, 'Ago-27':10.0, 'Sep-27':10.0 } },
+      'Carpintería de aluminio': { inicio: '2026-12-01', fin: '2027-10-31', curva: { 'Dic-26':60.0, 'Mar-27':5.0, 'Abr-27':5.0, 'May-27':5.0, 'Jun-27':10.0, 'Ago-27':10.0, 'Oct-27':5.0 } },
+      'Barandas de aluminio': { inicio: '2026-12-01', fin: '2027-08-31', curva: { 'Dic-26':60.0, 'Abr-27':8.88, 'May-27':8.88, 'Jun-27':8.88, 'Jul-27':8.88, 'Ago-27':4.48 } },
+      'Carp. esp. planta baja': { inicio: '2027-05-01', fin: '2027-09-30', curva: { 'May-27':60.0, 'Jul-27':15.0, 'Ago-27':15.0, 'Sep-27':10.0 } },
+      'Puertas de madera (MCH/HM)': { inicio: '2027-04-01', fin: '2027-10-31', curva: { 'Abr-27':40.0, 'Jun-27':15.0, 'Jul-27':15.0, 'Ago-27':10.0, 'Sep-27':10.0, 'Oct-27':10.0 } },
+      'Ascensores ppales': { inicio: '2026-12-01', fin: '2027-10-31', curva: { 'Dic-26':4.3, 'Ene-27':21.5, 'Feb-27':43.0, 'Mar-27':17.2, 'May-27':4.2, 'Jun-27':2.1, 'Jul-27':2.1, 'Ago-27':2.1, 'Sep-27':2.1, 'Oct-27':1.4 } },
+      'Ascensor servicio': { inicio: '2027-03-01', fin: '2027-11-30', curva: { 'Mar-27':5.0, 'Abr-27':80.0, 'Sep-27':5.0, 'Oct-27':5.0, 'Nov-27':5.0 } },
+      'Inst. ventilación (SS-B°-cocinas)': { inicio: '2027-03-01', fin: '2027-07-31', curva: { 'Mar-27':70.0, 'Abr-27':7.5, 'May-27':7.5, 'Jun-27':7.5, 'Jul-27':7.5 } },
+      'Preinstalación AA': { inicio: '2027-03-01', fin: '2027-07-31', curva: { 'Mar-27':70.0, 'Abr-27':7.5, 'May-27':7.5, 'Jun-27':7.5, 'Jul-27':7.5 } },
+      'Pisos y revestimientos': { inicio: '2027-07-01', fin: '2027-07-31', curva: { 'Jul-27':100 } },
+      'Artefactos y griferías': { inicio: '2027-07-01', fin: '2027-07-31', curva: { 'Jul-27':100 } },
+      'Muebles de cocina + FP': { inicio: '2027-02-01', fin: '2027-06-30', curva: { 'Feb-27':40.0, 'Mar-27':15.0, 'Abr-27':15.0, 'May-27':15.0, 'Jun-27':15.0 } },
+      'Pintura': { inicio: '2027-07-01', fin: '2028-03-31', curva: { 'Jul-27':20.0, 'Ago-27':10.0, 'Sep-27':10.0, 'Oct-27':10.0, 'Nov-27':10.0, 'Dic-27':10.0, 'Ene-28':10.0, 'Feb-28':10.0, 'Mar-28':10.0 } },
+      'Hornos + anafes': { inicio: '2027-06-01', fin: '2027-06-30', curva: { 'Jun-27':100 } },
+      'Solados vinílico': { inicio: '2027-09-01', fin: '2027-12-31', curva: { 'Sep-27':80.0, 'Oct-27':8.0, 'Nov-27':10.0, 'Dic-27':2.0 } },
+      'Marmolería cocinas': { inicio: '2027-06-01', fin: '2027-11-30', curva: { 'Jun-27':30.0, 'Jul-27':13.0, 'Ago-27':13.0, 'Sep-27':17.0, 'Oct-27':17.0, 'Nov-27':10.0 } },
+      'Marmolería baños': { inicio: '2027-06-01', fin: '2027-11-30', curva: { 'Jun-27':30.0, 'Jul-27':13.0, 'Ago-27':13.0, 'Sep-27':17.0, 'Oct-27':17.0, 'Nov-27':10.0 } },
+      'Herrajes': { inicio: '2027-12-01', fin: '2027-12-31', curva: { 'Dic-27':100 } },
+      'Accesorios de baños': { inicio: '2027-06-01', fin: '2027-06-30', curva: { 'Jun-27':100 } },
+      'Artefactos de luz': { inicio: '2028-01-01', fin: '2028-01-31', curva: { 'Ene-28':100 } },
+      'Control de incendio': { inicio: '2027-02-01', fin: '2027-06-30', curva: { 'Feb-27':30.0, 'Mar-27':20.0, 'Abr-27':20.0, 'May-27':15.0, 'Jun-27':15.0 } },
+      'Varios': { inicio: '2027-07-01', fin: '2028-03-31', curva: { 'Jul-27':12.0, 'Ago-27':12.0, 'Sep-27':12.0, 'Oct-27':12.0, 'Nov-27':12.0, 'Dic-27':12.0, 'Ene-28':12.0, 'Feb-28':10.0, 'Mar-28':6.0 } },
+    };
+    state.subcontratos.forEach(s => {
+      const r = CRONOGRAMA_RUBROS[s.nombre];
+      if (!r) return;
+      s.cronogramaProyectado = r.curva;
+      s.inicio = r.inicio;
+      s.fin = r.fin;
+    });
+    state._migr.cronogramaRubrosV1 = true;
+    changed = true;
+  }
   return changed;
 }
 
