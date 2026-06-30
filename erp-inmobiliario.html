@@ -1844,11 +1844,6 @@ function calcKPIs() {
   const costoTotal = costoSubcontratos + costoBlandos;
   const pagadoTotal = pagadoSubcontratos + pagadoBlandos;
 
-  // Avance real global (de certificaciones)
-  const certs = state.certificaciones;
-  const avanceReal = certs.length > 0 ? Math.max(...certs.map(c => c.avanceGlobal || 0)) : 0;
-  const avanceEstimado = calcAvanceEstimado();
-
   // Avance real del rubro Estructura (único contratado/en marcha) y avance global PONDERADO
   // por costo: sum(avanceReal_rubro × monto_rubro) / costo total de obra. El ponderado es
   // mucho menor porque la estructura es solo una parte del costo total de la obra.
@@ -1857,6 +1852,13 @@ function calcKPIs() {
   const avanceGlobalPonderado = costoSubcontratos > 0
     ? subcontratos.reduce((s, x) => s + (x.avanceReal || 0) * (x.monto || 0), 0) / costoSubcontratos
     : 0;
+
+  // avanceReal/avanceEstimado "globales" usan la misma métrica ponderada por costo, para que no
+  // haya 3 números distintos de "avance total" dando vueltas por la app (antes acá se usaba el
+  // avance propio de Estructura como si fuera el del proyecto entero, y una interpolación de
+  // hitos genérica sin relación con el cronograma real para el estimado).
+  const avanceReal = avanceGlobalPonderado;
+  const avanceEstimado = calcAvanceEstimadoGlobalPonderado(new Date());
 
   const saldoSubcontratos = costoTotal - pagadoTotal;
 
@@ -1902,23 +1904,6 @@ function calcKPIs() {
     ingresoTotalProyectado,
     margenBruto, margenPct,
   };
-}
-
-function calcAvanceEstimado() {
-  const hitos = state.hitos.sort((a, b) => new Date(a.fechaEst) - new Date(b.fechaEst));
-  const hoy = new Date();
-  let avance = 0;
-  for (let i = 0; i < hitos.length - 1; i++) {
-    const h1 = hitos[i], h2 = hitos[i + 1];
-    const d1 = new Date(h1.fechaEst), d2 = new Date(h2.fechaEst);
-    if (hoy >= d2) { avance = h2.pct; continue; }
-    if (hoy >= d1 && hoy < d2) {
-      const pct = (hoy - d1) / (d2 - d1);
-      avance = h1.pct + (h2.pct - h1.pct) * pct;
-      break;
-    }
-  }
-  return Math.min(100, Math.max(0, avance));
 }
 
 function calcCobradoReal() {
@@ -3548,9 +3533,13 @@ function setCronoTab(tab, el) {
 }
 
 function renderCronograma() {
-  const certs = state.certificaciones;
-  const avanceReal = certs.length > 0 ? Math.max(...certs.map(c => c.avanceGlobal || 0)) : 0;
-  const avanceEst = calcAvanceEstimado();
+  // Avance Real y Estimado ponderados por costo de obra (mismo cálculo que "Avance Global Obra"
+  // del Dashboard), para que no haya 3 números distintos del "avance total" en la app. Antes acá
+  // se mostraba el avance propio de Estructura como si fuera el del proyecto entero, y el
+  // estimado salía de una interpolación de hitos genérica sin relación con el cronograma real.
+  const kpis = calcKPIs();
+  const avanceReal = kpis.avanceReal;
+  const avanceEst = kpis.avanceEstimado;
   const desvio = avanceEst - avanceReal;
 
   document.getElementById('avance-real-pct').textContent = fmtPct(avanceReal);
@@ -3614,7 +3603,12 @@ function renderCronograma() {
 }
 
 function renderCurvaAvance() {
-  const subsConCurva = state.subcontratos.filter(s => s.cronogramaProyectado && Object.keys(s.cronogramaProyectado).length);
+  // Solo rubros que ya arrancaron (tienen al menos un certificado real) — todos los demás tienen
+  // cronograma proyectado (para el cashflow) pero 0% real porque ni empezaron, y mostrar esa barra
+  // vacía para los 28 rubros sin actividad todavía es puro ruido.
+  const subsConCurva = state.subcontratos.filter(s =>
+    s.cronogramaProyectado && Object.keys(s.cronogramaProyectado).length &&
+    state.certificaciones.some(c => c.subcontratoId === s.id));
   const card = document.getElementById('card-curva-avance');
   if (subsConCurva.length === 0) { card.style.display = 'none'; return; }
   card.style.display = 'block';
@@ -3716,6 +3710,20 @@ function avanceEstimadoSubEnFecha(s, fecha) {
   const totalMeses = Math.max(1, Math.round((fin - inicio) / (MS_DIA * DIAS_MES)));
   const transcurridos = Math.round((fecha - inicio) / (MS_DIA * DIAS_MES));
   return Math.min(100, Math.max(0, (transcurridos / totalMeses) * 100));
+}
+
+// Avance ESTIMADO global ponderado por costo a una fecha dada: igual que kpis.avanceGlobalPonderado
+// (Dashboard) pero usando el plan de cada rubro a esa fecha en vez de su avance real. Mismo
+// denominador (costo total de obra, con override de costosCerrados si el rubro está cerrado) para
+// que "Cronograma → Avance Estimado" y "Dashboard → Avance Global Obra" sean consistentes entre sí.
+function calcAvanceEstimadoGlobalPonderado(fecha) {
+  const montoCerrado = (rubro, tipo) => {
+    const cc = (state.costosCerrados || []).find(x => x.tipo === tipo && x.rubro === rubro);
+    return cc ? cc.montoContratadoUSD : null;
+  };
+  const costoTotal = state.subcontratos.reduce((s, c) => { const mc = montoCerrado(c.nombre, 'obra'); return s + (mc != null ? mc : (c.monto || 0)); }, 0);
+  if (costoTotal === 0) return 0;
+  return state.subcontratos.reduce((s, x) => s + avanceEstimadoSubEnFecha(x, fecha) * (x.monto || 0), 0) / costoTotal;
 }
 
 // Avance REAL acumulado (%) de un subcontrato imputado de sus certificados: el % del último
