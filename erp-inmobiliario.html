@@ -1907,12 +1907,13 @@ function calcKPIs() {
 }
 
 function calcCobradoReal() {
-  // Convierte todo a USD antes de sumar, ya que las cajas mezclan ARS (Banco ARS) y USD (resto)
-  const tc = state.proyecto.tc || 1450;
-  return state.movimientos.filter(m => m.tipo === 'ingreso').reduce((s, m) => {
-    const moneda = cajaInfo[m.caja]?.moneda || 'USD';
-    const montoUSD = moneda === 'ARS' ? (m.monto || 0) / tc : (m.monto || 0);
-    return s + montoUSD;
+  // Suma seña + cuotas cobradas por venta (directo de ventas, no de movimientos de caja).
+  // Excluye canjes: no generan cobro real en efectivo.
+  return state.ventas.reduce((total, v) => {
+    const unidad = state.unidades.find(u => u.id === v.unidadId);
+    if (unidad && (unidad.estadoComercial || '').startsWith('canje_')) return total;
+    const cuotaValor = v.cuotas > 0 ? ((v.precio || 0) - (v.sena || 0)) / v.cuotas : 0;
+    return total + (v.sena || 0) + cuotaValor * (v.cuotasCobradas || 0);
   }, 0);
 }
 
@@ -2337,16 +2338,19 @@ function showDetalleKpi(tipo, param) {
   }
 
   if (tipo === 'cobrado') {
-    const tc = state.proyecto.tc || 1450;
-    const ingresos = state.movimientos.filter(m => m.tipo === 'ingreso');
-    const porCaja = Object.keys(cajaInfo).map(c => {
-      const monto = ingresos.filter(m => m.caja === c).reduce((s, m) => s + (m.monto || 0), 0);
-      const moneda = cajaInfo[c].moneda || 'USD';
-      const montoUSD = moneda === 'ARS' ? monto / tc : monto;
-      return [cajaInfo[c].nombre, moneda, fmt(monto), fmt(montoUSD)];
-    });
-    abrirDetalleKpi('Cobrado Real (todas las cajas)', `de ${fmt(kpis.ingresoVentas)} comprometido en ventas`,
-      dkTabla(['Caja', 'Moneda', 'Ingresos (moneda local)', 'Equivalente USD'], porCaja, ['Total', '', '', fmt(kpis.cobrado)]));
+    const rows = state.ventas
+      .filter(v => {
+        const u = state.unidades.find(u => u.id === v.unidadId);
+        return !u || !(u.estadoComercial || '').startsWith('canje_');
+      })
+      .map(v => {
+        const u = state.unidades.find(u => u.id === v.unidadId);
+        const cuotaValor = v.cuotas > 0 ? ((v.precio || 0) - (v.sena || 0)) / v.cuotas : 0;
+        const cobrado = (v.sena || 0) + cuotaValor * (v.cuotasCobradas || 0);
+        return [u ? u.numero : '—', v.comprador || '—', fmt(v.sena || 0), `${v.cuotasCobradas || 0}/${v.cuotas || 0}`, fmt(cobrado)];
+      });
+    abrirDetalleKpi('Cobrado Real (ventas)', `de ${fmt(kpis.ingresoVentas)} comprometido en ventas`,
+      dkTabla(['Unidad', 'Comprador', 'Seña', 'Cuotas', 'Total cobrado'], rows, ['Total', '', '', '', fmt(kpis.cobrado)]));
     return;
   }
 
@@ -3243,13 +3247,7 @@ function registrarCobroCuota(id) {
   const cuotaValor = v.cuotas > 0 ? (v.precio - (v.sena || 0)) / v.cuotas : 0;
   if (!confirm(`Registrar cobro de 1 cuota de ${v.comprador} por ${fmt(cuotaValor)} (cuota ${(v.cuotasCobradas || 0) + 1} de ${v.cuotas})?`)) return;
   v.cuotasCobradas = (v.cuotasCobradas || 0) + 1;
-  // Deja constancia del cobro en la caja de cobros en USD (LMC).
-  state.movimientos.push({
-    id: uid(), caja: 'lmc', tipo: 'ingreso',
-    fecha: new Date().toISOString().split('T')[0],
-    monto: Math.round(cuotaValor),
-    concepto: `Cobro cuota ${v.cuotasCobradas}/${v.cuotas} — ${v.comprador}`
-  });
+  // Cobrado se calcula directo de ventas; si querés registrar el ingreso en caja, usá la sección Cajas.
   saveState(); renderVentas(); renderDashboard();
 }
 
