@@ -855,11 +855,14 @@
       <div class="form-group"><label>Precio de Venta ($)</label><input type="number" id="v-precio" placeholder="0"></div>
       <div class="form-group"><label>Fecha</label><input type="date" id="v-fecha"></div>
       <div class="form-group"><label>Seña / Anticipo (USD)</label><input type="number" id="v-sena" placeholder="0"></div>
-      <div class="form-group"><label>Cuotas</label><input type="number" id="v-cuotas" placeholder="Ej: 24" min="1"></div>
-      <div class="form-group"><label>Cuotas Cobradas</label><input type="number" id="v-cuotas-cobradas" placeholder="0" min="0"></div>
-      <div class="form-group"><label>% del saldo en USD</label><input type="number" id="v-pct-usd" placeholder="0" min="0" max="100"><span class="text-xs text-2" id="v-pct-hint"></span></div>
+      <div class="form-group"><label>Cuotas USD — cantidad</label><input type="number" id="v-cuotas-usd" placeholder="0" min="0"></div>
+      <div class="form-group"><label>Monto por cuota (USD)</label><input type="number" id="v-monto-cuota-usd" placeholder="0" min="0"></div>
+      <div class="form-group"><label>Cuotas USD cobradas</label><input type="number" id="v-cobradas-usd" placeholder="0" min="0"></div>
+      <div class="form-group"><label>Cuotas ARS+CAC — cantidad</label><input type="number" id="v-cuotas-ars" placeholder="0" min="0"></div>
+      <div class="form-group"><label>Monto por cuota (ARS $)</label><input type="number" id="v-monto-cuota-ars" placeholder="0" min="0"></div>
+      <div class="form-group"><label>Cuotas ARS cobradas</label><input type="number" id="v-cobradas-ars" placeholder="0" min="0"></div>
     </div>
-    <div class="text-xs text-2" style="margin-top:6px">El anticipo siempre se cuenta como USD. El saldo (precio − anticipo) se parte: el % indicado va en USD fijo y el resto en ARS + CAC.</div>
+    <div class="text-xs text-2" style="margin-top:6px">La seña siempre es USD. Las <b>cuotas USD</b> son fijas en dólares. Las <b>cuotas ARS+CAC</b> se cargan en pesos y se convierten a USD al TC actual — más adelante se ajustarán por el índice CAC.</div>
     <div class="form-group mt-4"><label>Notas</label><textarea id="v-notas" rows="2" style="resize:vertical"></textarea></div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('modal-venta')">Cancelar</button>
@@ -1176,6 +1179,62 @@ function applyMigrations() {
       if (u && MAP[u.numero] != null) v.pctSaldoUSD = MAP[u.numero];
     });
     state._migr.calceMonedaV2 = true;
+    changed = true;
+  }
+
+  // ventasCuotasV1: desdobla el plan de pagos de cada venta en DOS tracks independientes —
+  // cuotas fijas en USD y cuotas en ARS+CAC (guardadas en pesos) — en vez del viejo modelo de
+  // un solo contador `cuotas` + `pctSaldoUSD`. Esto permite los 3 escenarios reales: (1) todo
+  // USD, (2) todo ARS+CAC, (3) mixto. Los montos vienen de las condiciones de pago originales
+  // (mismas que alimentaban el seed), mapeadas por número de unidad. Para ventas cargadas a mano
+  // después (sin mapa), reconstruye desde pctSaldoUSD/cuotas. Recalcula pctSaldoUSD derivado
+  // para que el calce de moneda (que lo sigue usando) no cambie.
+  if (!state._migr.ventasCuotasV1 && Array.isArray(state.ventas)) {
+    const RAW = {
+      '1E':{mUSD:0,nUSD:0,mARS:1000000,nARS:2},
+      '2A':{mUSD:0,nUSD:0,mARS:0,nARS:0},
+      '2C':{mUSD:4400,nUSD:12,mARS:0,nARS:0},
+      '2G':{mUSD:3200,nUSD:12,mARS:3000000,nARS:1},
+      '2H':{mUSD:12500,nUSD:6,mARS:0,nARS:0},
+      '3A':{mUSD:0,nUSD:0,mARS:0,nARS:0},
+      '3B':{mUSD:4400,nUSD:12,mARS:0,nARS:0},
+      '3E':{mUSD:0,nUSD:0,mARS:0,nARS:0},
+      '3F':{mUSD:0,nUSD:0,mARS:0,nARS:0},
+      '4A':{mUSD:0,nUSD:0,mARS:0,nARS:0},
+      '4B':{mUSD:4400,nUSD:12,mARS:0,nARS:0},
+      '4E':{mUSD:0,nUSD:0,mARS:2000000,nARS:1},
+      '4F':{mUSD:4000,nUSD:35,mARS:6000000,nARS:1},
+      '5C':{mUSD:0,nUSD:0,mARS:5000000,nARS:1},
+      '7A':{mUSD:0,nUSD:0,mARS:8358000,nARS:35},
+    };
+    const tc = (state.proyecto && state.proyecto.tc) || 1450;
+    state.ventas.forEach(v => {
+      if (v.cuotasUSD != null || v.cuotasARS != null) return; // ya tiene tracks
+      const u = (state.unidades || []).find(x => x.id === v.unidadId);
+      const r = u ? RAW[u.numero] : null;
+      const cobrPrev = v.cuotasCobradas || 0;
+      if (r) {
+        v.cuotasUSD = r.nUSD; v.montoCuotaUSD = r.mUSD;
+        v.cuotasARS = r.nARS; v.montoCuotaARS = r.mARS;
+      } else {
+        // Venta cargada a mano: reconstruye desde pctSaldoUSD/cuotas (saldo repartido parejo).
+        const saldo = Math.max(0, (v.precio || 0) - (v.sena || 0));
+        const p = (v.pctSaldoUSD != null ? v.pctSaldoUSD : 0) / 100;
+        const n = v.cuotas || 0;
+        v.cuotasUSD = (saldo * p > 0 && n > 0) ? n : 0;
+        v.montoCuotaUSD = v.cuotasUSD > 0 ? saldo * p / n : 0;
+        v.cuotasARS = (saldo * (1 - p) > 0 && n > 0) ? n : 0;
+        v.montoCuotaARS = v.cuotasARS > 0 ? saldo * (1 - p) * tc / n : 0;
+      }
+      v.cuotasCobradasUSD = Math.min(cobrPrev, v.cuotasUSD);
+      v.cuotasCobradasARS = Math.min(cobrPrev, v.cuotasARS);
+      // pctSaldoUSD derivado: fracción USD del saldo comprometido (lo usa el calce de moneda).
+      const sUSD = v.montoCuotaUSD * v.cuotasUSD;
+      const sARS = v.montoCuotaARS * v.cuotasARS / tc;
+      const tot = sUSD + sARS;
+      v.pctSaldoUSD = tot > 0 ? Math.round(sUSD / tot * 100) : (v.pctSaldoUSD || 0);
+    });
+    state._migr.ventasCuotasV1 = true;
     changed = true;
   }
 
@@ -1533,8 +1592,9 @@ function loadSampleData() {
       id: uid(), unidadId, comprador: v.comprador, dni: '',
       estado: 'boleto', precio: v.precioTotal,
       fecha: rawUnidades.find(u => u.numero === v.unidad)?.fecha || '',
-      sena: v.anticipo, cuotas: v.cantCuotas || v.cantCuotasARS || 0,
-      cuotasCobradas: 0,
+      sena: v.anticipo,
+      cuotasUSD: v.cantCuotas || 0, montoCuotaUSD: v.cuotaFijaUSD || 0, cuotasCobradasUSD: 0,
+      cuotasARS: v.cantCuotasARS || 0, montoCuotaARS: v.cuotasARSCAC || 0, cuotasCobradasARS: 0,
       notas: v.cuotaFijaUSD ? `Cuota fija USD ${v.cuotaFijaUSD}` : (v.cuotasARSCAC ? `Cuotas ARS+CAC: ${v.cantCuotasARS} de $${v.cuotasARSCAC.toLocaleString('es-AR')}` : ''),
     });
   });
@@ -1906,14 +1966,31 @@ function calcKPIs() {
   };
 }
 
+// Desglose de cobranza de una venta, separado por moneda. Los montos ARS se guardan en pesos;
+// se convierten a USD al TC actual (más adelante: MEP + ajuste CAC sobre las cuotas ARS).
+function ventaCobranza(v) {
+  const tc = (state.proyecto && state.proyecto.tc) || 1450;
+  const cuotasUSD = v.cuotasUSD || 0, mUSD = v.montoCuotaUSD || 0;
+  const cobrUSD = Math.min(v.cuotasCobradasUSD || 0, cuotasUSD);
+  const cuotasARS = v.cuotasARS || 0, mARS = v.montoCuotaARS || 0;
+  const cobrARS = Math.min(v.cuotasCobradasARS || 0, cuotasARS);
+  const sena = v.sena || 0;
+  const cobradoUSD = sena + mUSD * cobrUSD;            // USD
+  const cobradoARS = mARS * cobrARS;                   // pesos
+  const cobradoTotalUSD = cobradoUSD + cobradoARS / tc;
+  return {
+    tc, sena, cuotasUSD, cobrUSD, mUSD, cuotasARS, cobrARS, mARS,
+    cobradoUSD, cobradoARS, cobradoTotalUSD,
+  };
+}
+
 function calcCobradoReal() {
-  // Suma seña + cuotas cobradas por venta (directo de ventas, no de movimientos de caja).
-  // Excluye canjes: no generan cobro real en efectivo.
+  // Suma seña + cuotas cobradas (USD directo + ARS convertido a TC) por venta, directo de las
+  // ventas (no de movimientos de caja). Excluye canjes: no generan cobro real en efectivo.
   return state.ventas.reduce((total, v) => {
     const unidad = state.unidades.find(u => u.id === v.unidadId);
     if (unidad && (unidad.estadoComercial || '').startsWith('canje_')) return total;
-    const cuotaValor = v.cuotas > 0 ? ((v.precio || 0) - (v.sena || 0)) / v.cuotas : 0;
-    return total + (v.sena || 0) + cuotaValor * (v.cuotasCobradas || 0);
+    return total + ventaCobranza(v).cobradoTotalUSD;
   }, 0);
 }
 
@@ -2345,12 +2422,13 @@ function showDetalleKpi(tipo, param) {
       })
       .map(v => {
         const u = state.unidades.find(u => u.id === v.unidadId);
-        const cuotaValor = v.cuotas > 0 ? ((v.precio || 0) - (v.sena || 0)) / v.cuotas : 0;
-        const cobrado = (v.sena || 0) + cuotaValor * (v.cuotasCobradas || 0);
-        return [u ? u.numero : '—', v.comprador || '—', fmt(v.sena || 0), `${v.cuotasCobradas || 0}/${v.cuotas || 0}`, fmt(cobrado)];
+        const cob = ventaCobranza(v);
+        const cuotasUSDtxt = cob.cuotasUSD > 0 ? `${cob.cobrUSD}/${cob.cuotasUSD}` : '—';
+        const cuotasARStxt = cob.cuotasARS > 0 ? `${cob.cobrARS}/${cob.cuotasARS}` : '—';
+        return [u ? u.numero : '—', v.comprador || '—', fmt(cob.sena), cuotasUSDtxt, cuotasARStxt, fmt(cob.cobradoTotalUSD)];
       });
-    abrirDetalleKpi('Cobrado Real (ventas)', `de ${fmt(kpis.ingresoVentas)} comprometido en ventas`,
-      dkTabla(['Unidad', 'Comprador', 'Seña', 'Cuotas', 'Total cobrado'], rows, ['Total', '', '', '', fmt(kpis.cobrado)]));
+    abrirDetalleKpi('Cobrado Real (ventas)', `de ${fmt(kpis.ingresoVentas)} comprometido en ventas. Cuotas ARS+CAC convertidas a USD al TC actual.`,
+      dkTabla(['Unidad', 'Comprador', 'Seña (USD)', 'Cuotas USD', 'Cuotas ARS+CAC', 'Total cobrado (USD)'], rows, ['Total', '', '', '', '', fmt(kpis.cobrado)]));
     return;
   }
 
@@ -2797,12 +2875,16 @@ function renderVentas() {
     rows = filtered.map(v => {
       const m2 = v.unidad?.m2Total || 0;
       const preciom2 = m2 > 0 ? v.precio / m2 : 0;
-      const cuotaValor = v.cuotas > 0 ? (v.precio - v.sena) / v.cuotas : 0;
-      const cobrado = v.sena + cuotaValor * (v.cuotasCobradas || 0);
+      const cob = ventaCobranza(v);
+      const cobrado = cob.cobradoTotalUSD;
       const saldo = v.precio - cobrado;
       totalPrecio += v.precio || 0;
       totalSaldo += saldo;
       const badges = { reserva: 'badge-yellow', boleto: 'badge-blue', escritura: 'badge-green' };
+      const cuotasParts = [];
+      if (cob.cuotasUSD > 0) cuotasParts.push(`USD ${cob.cobrUSD}/${cob.cuotasUSD}`);
+      if (cob.cuotasARS > 0) cuotasParts.push(`ARS ${cob.cobrARS}/${cob.cuotasARS}`);
+      const cuotasTxt = cuotasParts.length ? cuotasParts.join(' · ') : '—';
       return `
         <tr>
           <td class="font-bold">${v.unidad?.numero} (${v.unidad?.tipo})</td>
@@ -2811,10 +2893,11 @@ function renderVentas() {
           <td class="font-bold">${fmt(v.precio)}</td>
           <td>${fmt(preciom2)}/m²</td>
           <td>${v.fecha}</td>
-          <td>${v.cuotasCobradas || 0}/${v.cuotas || 0}${cuotaValor > 0 ? `<div class="text-xs text-2">${fmt(cuotaValor)}/cuota</div>` : ''}</td>
+          <td class="text-xs">${cuotasTxt}</td>
           <td class="${saldo > 0 ? 'text-yellow' : 'text-green'}">${fmt(saldo)}</td>
           <td style="white-space:nowrap">
-            ${v.cuotas > 0 && (v.cuotasCobradas || 0) < v.cuotas ? `<button class="btn btn-success btn-sm" onclick="registrarCobroCuota('${v.id}')" title="Registrar cobro de 1 cuota">+ Cuota</button>` : ''}
+            ${cob.cuotasUSD > cob.cobrUSD ? `<button class="btn btn-success btn-sm" onclick="registrarCobroCuota('${v.id}','usd')" title="Cobrar 1 cuota USD">+USD</button>` : ''}
+            ${cob.cuotasARS > cob.cobrARS ? `<button class="btn btn-success btn-sm" onclick="registrarCobroCuota('${v.id}','ars')" title="Cobrar 1 cuota ARS+CAC">+ARS</button>` : ''}
             <button class="btn btn-secondary btn-sm" onclick="editVenta('${v.id}')">✏️</button>
             <button class="btn btn-danger btn-sm" onclick="deleteVenta('${v.id}')">🗑</button>
           </td>
@@ -2913,12 +2996,11 @@ function buildClientesData() {
     const cocherasCliente = state.cocheras.filter(c => c.cliente && nombresSimilares(c.cliente, nombre));
 
     const detalleVentas = ventas.map(v => {
-      const cuotaValor = v.cuotas > 0 ? (v.precio - (v.sena || 0)) / v.cuotas : 0;
-      const cuotasCobradas = v.cuotasCobradas || 0;
-      const cobrado = (v.sena || 0) + cuotaValor * cuotasCobradas;
+      const cob = ventaCobranza(v);
+      const cobrado = cob.cobradoTotalUSD;
       const saldo = v.precio - cobrado;
       const preciom2 = v.unidad.m2Total > 0 ? v.precio / v.unidad.m2Total : 0;
-      return { ...v, cuotaValor, cobrado, saldo, preciom2 };
+      return { ...v, cob, cobrado, saldo, preciom2 };
     });
 
     const totalVendido = detalleVentas.reduce((s, v) => s + v.precio, 0) + cocherasCliente.reduce((s, c) => s + (c.precio || 0), 0);
@@ -3022,7 +3104,7 @@ function abrirDetalleCliente(nombre) {
               <td>${fmt(v.preciom2)}/m²</td>
               <td><span class="badge badge-blue">${v.estado}</span></td>
               <td>${fmt(v.sena)}</td>
-              <td>${v.cuotasCobradas || 0}/${v.cuotas || 0} <span class="text-xs text-2">(${fmt(v.cuotaValor)}/cuota)</span></td>
+              <td class="text-xs">${[v.cob.cuotasUSD > 0 ? `USD ${v.cob.cobrUSD}/${v.cob.cuotasUSD}` : '', v.cob.cuotasARS > 0 ? `ARS ${v.cob.cobrARS}/${v.cob.cuotasARS}` : ''].filter(Boolean).join(' · ') || '—'}</td>
               <td class="text-green">${fmt(v.cobrado)}</td>
               <td class="${v.saldo > 0 ? 'text-yellow' : 'text-green'} font-bold">${fmt(v.saldo)}</td>
             </tr>
@@ -3092,7 +3174,7 @@ function nuevoRegistro(id) {
     const disp = state.unidades.filter(u => u.estadoComercial === 'disponible');
     sel.innerHTML = disp.map(u => `<option value="${u.id}">${u.numero} — ${u.tipo} (${u.m2Total}m²) — ${fmt(u.precio)}</option>`).join('')
       || '<option value="">No hay unidades disponibles</option>';
-    ['v-comprador','v-dni','v-sena','v-cuotas','v-cuotas-cobradas','v-notas','v-pct-usd'].forEach(f => document.getElementById(f).value = '');
+    ['v-comprador','v-dni','v-sena','v-cuotas-usd','v-monto-cuota-usd','v-cobradas-usd','v-cuotas-ars','v-monto-cuota-ars','v-cobradas-ars','v-notas'].forEach(f => document.getElementById(f).value = '');
     document.getElementById('v-estado').value = 'boleto';
     document.getElementById('v-fecha').value = hoy;
     syncPrecioFromUnidad();
@@ -3166,17 +3248,30 @@ function saveVenta() {
     precio: parseFloat(document.getElementById('v-precio').value) || 0,
     fecha: document.getElementById('v-fecha').value,
     sena: parseFloat(document.getElementById('v-sena').value) || 0,
-    cuotas: parseInt(document.getElementById('v-cuotas').value) || 0,
-    cuotasCobradas: parseInt(document.getElementById('v-cuotas-cobradas').value) || 0,
-    pctSaldoUSD: Math.min(100, Math.max(0, parseFloat(document.getElementById('v-pct-usd').value) || 0)),
+    cuotasUSD: parseInt(document.getElementById('v-cuotas-usd').value) || 0,
+    montoCuotaUSD: parseFloat(document.getElementById('v-monto-cuota-usd').value) || 0,
+    cuotasCobradasUSD: parseInt(document.getElementById('v-cobradas-usd').value) || 0,
+    cuotasARS: parseInt(document.getElementById('v-cuotas-ars').value) || 0,
+    montoCuotaARS: parseFloat(document.getElementById('v-monto-cuota-ars').value) || 0,
+    cuotasCobradasARS: parseInt(document.getElementById('v-cobradas-ars').value) || 0,
     notas: document.getElementById('v-notas').value,
   };
 
-  // Validación: no permitir cobrar más cuotas de las que existen.
-  if (v.cuotas > 0 && v.cuotasCobradas > v.cuotas) {
-    alert(`No podés marcar ${v.cuotasCobradas} cuotas cobradas si el plan es de ${v.cuotas} cuotas.`);
+  // Validación: no permitir cobrar más cuotas de las que existen (por track).
+  if (v.cuotasCobradasUSD > v.cuotasUSD) {
+    alert(`No podés marcar ${v.cuotasCobradasUSD} cuotas USD cobradas si el plan es de ${v.cuotasUSD}.`);
     return;
   }
+  if (v.cuotasCobradasARS > v.cuotasARS) {
+    alert(`No podés marcar ${v.cuotasCobradasARS} cuotas ARS+CAC cobradas si el plan es de ${v.cuotasARS}.`);
+    return;
+  }
+  // pctSaldoUSD derivado (lo usa el calce de moneda): fracción USD del saldo comprometido.
+  const tc = (state.proyecto && state.proyecto.tc) || 1450;
+  const sUSD = v.montoCuotaUSD * v.cuotasUSD;
+  const sARS = v.montoCuotaARS * v.cuotasARS / tc;
+  const totComp = sUSD + sARS;
+  v.pctSaldoUSD = totComp > 0 ? Math.round(sUSD / totComp * 100) : 0;
 
   const existing = editId ? state.ventas.find(x => x.id === editId) : null;
 
@@ -3220,9 +3315,12 @@ function editVenta(id) {
   document.getElementById('v-precio').value = v.precio || 0;
   document.getElementById('v-fecha').value = v.fecha || '';
   document.getElementById('v-sena').value = v.sena || 0;
-  document.getElementById('v-cuotas').value = v.cuotas || 0;
-  document.getElementById('v-cuotas-cobradas').value = v.cuotasCobradas || 0;
-  document.getElementById('v-pct-usd').value = v.pctSaldoUSD != null ? v.pctSaldoUSD : 0;
+  document.getElementById('v-cuotas-usd').value = v.cuotasUSD || 0;
+  document.getElementById('v-monto-cuota-usd').value = v.montoCuotaUSD || 0;
+  document.getElementById('v-cobradas-usd').value = v.cuotasCobradasUSD || 0;
+  document.getElementById('v-cuotas-ars').value = v.cuotasARS || 0;
+  document.getElementById('v-monto-cuota-ars').value = v.montoCuotaARS || 0;
+  document.getElementById('v-cobradas-ars').value = v.cuotasCobradasARS || 0;
   document.getElementById('v-notas').value = v.notas || '';
   openModal('modal-venta');
 }
@@ -3238,16 +3336,22 @@ function deleteVenta(id) {
   saveState(); renderVentas(); renderDashboard();
 }
 
-// Registra el cobro de UNA cuota de la venta (incrementa cuotasCobradas y deja registrado
-// el ingreso en la caja correspondiente). Atajo para no tener que abrir el modal de edición.
-function registrarCobroCuota(id) {
+// Registra el cobro de UNA cuota de la venta, en el track indicado ('usd' o 'ars'). Atajo para
+// no tener que abrir el modal de edición. El cobrado se calcula directo de ventas; si querés que
+// además impacte en una caja, cargá el ingreso desde la sección Cajas.
+function registrarCobroCuota(id, moneda) {
   const v = state.ventas.find(x => x.id === id);
   if (!v) return;
-  if ((v.cuotasCobradas || 0) >= (v.cuotas || 0)) { alert('Ya están cobradas todas las cuotas de esta venta.'); return; }
-  const cuotaValor = v.cuotas > 0 ? (v.precio - (v.sena || 0)) / v.cuotas : 0;
-  if (!confirm(`Registrar cobro de 1 cuota de ${v.comprador} por ${fmt(cuotaValor)} (cuota ${(v.cuotasCobradas || 0) + 1} de ${v.cuotas})?`)) return;
-  v.cuotasCobradas = (v.cuotasCobradas || 0) + 1;
-  // Cobrado se calcula directo de ventas; si querés registrar el ingreso en caja, usá la sección Cajas.
+  if (moneda === 'usd') {
+    if ((v.cuotasCobradasUSD || 0) >= (v.cuotasUSD || 0)) { alert('Ya están cobradas todas las cuotas USD.'); return; }
+    if (!confirm(`Registrar cobro de 1 cuota USD de ${v.comprador} por ${fmt(v.montoCuotaUSD || 0)} (cuota ${(v.cuotasCobradasUSD || 0) + 1} de ${v.cuotasUSD})?`)) return;
+    v.cuotasCobradasUSD = (v.cuotasCobradasUSD || 0) + 1;
+  } else {
+    if ((v.cuotasCobradasARS || 0) >= (v.cuotasARS || 0)) { alert('Ya están cobradas todas las cuotas ARS+CAC.'); return; }
+    const tc = (state.proyecto && state.proyecto.tc) || 1450;
+    if (!confirm(`Registrar cobro de 1 cuota ARS+CAC de ${v.comprador} por $${fmtNum(Math.round(v.montoCuotaARS || 0))} (≈${fmt((v.montoCuotaARS || 0) / tc)}) (cuota ${(v.cuotasCobradasARS || 0) + 1} de ${v.cuotasARS})?`)) return;
+    v.cuotasCobradasARS = (v.cuotasCobradasARS || 0) + 1;
+  }
   saveState(); renderVentas(); renderDashboard();
 }
 
@@ -3791,9 +3895,12 @@ function calcCashflowMensualGlobal() {
     if (mesDate >= hoyMes) {
       const mesesDesdeHoy = Math.round((mesDate - hoyMes) / (MS_DIA * DIAS_MES));
       ventasActivas.forEach(v => {
-        const cuotaValor = v.cuotas > 0 ? (v.precio - (v.sena || 0)) / v.cuotas : 0;
-        const pendientes = Math.max(0, (v.cuotas || 0) - (v.cuotasCobradas || 0));
-        if (mesesDesdeHoy >= 0 && mesesDesdeHoy < pendientes) ingreso += cuotaValor;
+        const cob = ventaCobranza(v);
+        const pendUSD = Math.max(0, cob.cuotasUSD - cob.cobrUSD);
+        const pendARS = Math.max(0, cob.cuotasARS - cob.cobrARS);
+        // Proyección: una cuota USD y/o una cuota ARS por mes hacia adelante, hasta agotar cada track.
+        if (mesesDesdeHoy >= 0 && mesesDesdeHoy < pendUSD) ingreso += cob.mUSD;
+        if (mesesDesdeHoy >= 0 && mesesDesdeHoy < pendARS) ingreso += cob.mARS / cob.tc;
       });
     }
     // Egreso: delta de avance estimado mes a mes de cada subcontrato × su monto
